@@ -1,749 +1,372 @@
-// ============================================
-// SWITCH GAMES - Core Engine
-// ============================================
-
-let audioContext = null;
-
-function initAudio() {
-    if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-}
-
-function playSound(type) {
-    if (!settings.soundEnabled || !audioContext) return;
-    const osc = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-    osc.connect(gain); gain.connect(audioContext.destination);
-    
-    const t = audioContext.currentTime;
-    switch(type) {
-        case 'shoot': osc.frequency.setValueAtTime(800, t); osc.frequency.exponentialRampToValueAtTime(200, t + 0.1);
-            gain.gain.setValueAtTime(0.3, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
-            osc.start(); osc.stop(t + 0.1); break;
-        case 'hit': osc.frequency.setValueAtTime(300, t); osc.frequency.exponentialRampToValueAtTime(100, t + 0.15);
-            gain.gain.setValueAtTime(0.4, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
-            osc.start(); osc.stop(t + 0.15); break;
-        case 'score': osc.frequency.setValueAtTime(523, t); osc.frequency.setValueAtTime(659, t + 0.1); osc.frequency.setValueAtTime(784, t + 0.2);
-            gain.gain.setValueAtTime(0.3, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
-            osc.start(); osc.stop(t + 0.3); break;
-        case 'gameover': osc.frequency.setValueAtTime(400, t); osc.frequency.exponentialRampToValueAtTime(100, t + 0.5);
-            gain.gain.setValueAtTime(0.5, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
-            osc.start(); osc.stop(t + 0.5); break;
-        case 'move': osc.frequency.setValueAtTime(200, t); gain.gain.setValueAtTime(0.1, t);
-            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.05); osc.start(); osc.stop(t + 0.05); break;
-        case 'jump': osc.frequency.setValueAtTime(300, t); osc.frequency.exponentialRampToValueAtTime(600, t + 0.1);
-            gain.gain.setValueAtTime(0.3, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
-            osc.start(); osc.stop(t + 0.1); break;
-        case 'beep': osc.frequency.setValueAtTime(440, t); gain.gain.setValueAtTime(0.2, t);
-            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1); osc.start(); osc.stop(t + 0.1); break;
-        case 'low': osc.frequency.setValueAtTime(220, t); gain.gain.setValueAtTime(0.3, t);
-            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2); osc.start(); osc.stop(t + 0.2); break;
-        case 'high': osc.frequency.setValueAtTime(880, t); gain.gain.setValueAtTime(0.3, t);
-            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2); osc.start(); osc.stop(t + 0.2); break;
-        case 'fanfare':
-            osc.frequency.setValueAtTime(523, t); osc.frequency.setValueAtTime(659, t + 0.12);
-            osc.frequency.setValueAtTime(784, t + 0.24); osc.frequency.setValueAtTime(1047, t + 0.36);
-            osc.frequency.setValueAtTime(784, t + 0.5); osc.frequency.setValueAtTime(1047, t + 0.62);
-            gain.gain.setValueAtTime(0.35, t); gain.gain.setValueAtTime(0.35, t + 0.7);
-            gain.gain.exponentialRampToValueAtTime(0.01, t + 1.0);
-            osc.start(); osc.stop(t + 1.0); break;
-    }
-}
-
-let currentGame = null, gameLoop = null, canvas, ctx, currentGameType = null;
-const settings = {
-    speed: 5, soundEnabled: true,
-    scanMode: 'step',   // menu switch access: 'off' | 'step' (right=move, left=select) | 'auto' (timed highlight, any switch selects)
-    scanSpeed: 1500,    // ms per highlight step in auto mode
-    debounce: 0,        // ms to ignore repeat presses (tremor filter), 0 = off
-    practiceMode: false // games never end: crash re-starts the round, score kept
-};
-const switchModeSettings = {}; // Stores per-game switch mode: { 'snake': 1, 'breakout': 2, ... }
-const gameSpeedSettings = {};  // Stores per-game speed override: { 'snake': 3, ... }
-const highScores = {};         // Stores per-game best score: { 'snake': 120, ... }
+// Switch Games: one input router, explicit screen states and fixed-step simulation.
+let canvas, ctx, currentGame = null, currentGameType = null, pendingGameType = null;
+let currentPage = 0, returnPage = 0, dialogId = null, lastFocus = null;
+let paused = false, scanIndex = 0, scanTimer = null, overlayShownAt = 0;
+let keyboardNavigation = false;
+let simulationTime = 0, lastFrame = null, accumulator = 0, recoveryUntil = 0;
+const STEP = 1000 / 60, LOCKOUT = 600, gamesPerPage = 6;
+function gameNow() { return simulationTime; }
+const settings = { speed: 5, soundEnabled: true, scanMode: 'auto', scanSpeed: 2000,
+    debounce: 0, practiceMode: false, switchMode: 1, holdPause: 2500,
+    largeText: true, reducedMotion: false, spokenScan: false };
+const switchModeSettings = {}, gameSpeedSettings = {}, highScores = {};
 const input = { left: false, right: false, leftPressed: false, rightPressed: false };
-
-// Pagination
-let currentPage = 0;
-const gamesPerPage = 6;
-const allGames = [
-    { id: 'space-invaders', name: 'SPACE INVADERS', icon: 'space-invaders-icon' },
-    { id: 'snake', name: 'SNAKEY', icon: 'snake-icon' },
-    { id: 'breakout', name: 'BREAKOUT', icon: 'breakout-icon' },
-    { id: 'bubble-shooter', name: 'BUBBLE SHOOT', icon: 'bubble-icon' },
-    { id: 'tetris', name: 'TETRIS', icon: 'tetris-icon' },
-    { id: 'pong', name: 'PONG', icon: 'pong-icon' },
-    { id: 'flappy', name: 'FLAPPY BIRD', icon: 'flappy-icon' },
-    { id: 'dino', name: 'DINO RUNNER', icon: 'dino-icon' },
-    { id: 'helicopter', name: 'HELICOPTER', icon: 'helicopter-icon' },
-    { id: 'rhythm', name: 'RHYTHM', icon: 'rhythm-icon' },
-    { id: 'tank', name: 'TANK BATTLE', icon: 'tank-icon' },
-    { id: 'asteroids', name: 'ASTEROIDS', icon: 'asteroids-icon' },
-    { id: 'skiing', name: 'SKIING', icon: 'skiing-icon' },
-    { id: 'balance', name: 'BALANCE', icon: 'balance-icon' },
-    { id: 'simon', name: 'SIMON SAYS', icon: 'simon-icon' },
-    { id: 'whack', name: 'WHACK-A-MOLE', icon: 'whack-icon' },
-    { id: 'airhockey', name: 'AIR HOCKEY', icon: 'airhockey-icon' },
-    { id: 'lander', name: 'LUNAR LANDER', icon: 'lander-icon' },
-    { id: 'fruit', name: 'FRUIT NINJA', icon: 'fruit-icon' },
-    { id: 'stack', name: 'STACK TOWER', icon: 'stack-icon' },
-    { id: 'penalty', name: 'PENALTY KICK', icon: 'penalty-icon' },
-    { id: 'pinball', name: 'PINBALL', icon: 'pinball-icon' },
-    { id: 'brickbuilder', name: 'BRICK BUILDER', icon: 'brickbuilder-icon' },
-    { id: 'spacedodge', name: 'SPACE DODGE', icon: 'spacedodge-icon' },
-    { id: 'wireloop', name: 'WIRE LOOP', icon: 'wireloop-icon' },
-];
-
-function getTotalPages() {
-    return Math.ceil(allGames.length / gamesPerPage);
-}
-
-function renderPage() {
-    const grid = document.getElementById('games-grid');
-    grid.innerHTML = '';
-    
-    const start = currentPage * gamesPerPage;
-    const end = Math.min(start + gamesPerPage, allGames.length);
-    
-    for (let i = start; i < end; i++) {
-        const game = allGames[i];
-        const btn = document.createElement('button');
-        btn.className = 'game-button';
-        btn.dataset.game = game.id;
-        const gameName = typeof getGameName === 'function' ? getGameName(game.id) : game.name;
-        btn.innerHTML = `<div class="game-icon ${game.icon}"></div><span class="game-label">${gameName}</span>`;
-        btn.addEventListener('click', () => { initAudio(); startGame(game.id); });
-        grid.appendChild(btn);
-    }
-    
-    // Update navigation buttons
-    document.getElementById('prev-page-btn').disabled = currentPage === 0;
-    document.getElementById('next-page-btn').disabled = currentPage >= getTotalPages() - 1;
-    
-    // Update page indicator
-    const indicator = document.getElementById('page-indicator');
-    indicator.innerHTML = '';
-    for (let i = 0; i < getTotalPages(); i++) {
-        const dot = document.createElement('div');
-        dot.className = 'page-dot' + (i === currentPage ? ' active' : '');
-        dot.addEventListener('click', () => { currentPage = i; renderPage(); playSound('move'); });
-        indicator.appendChild(dot);
-    }
-    
-    // Reset gamepad selection
-    gamepadMenuIndex = 0;
-    const buttons = document.querySelectorAll('.game-button');
-    if (buttons.length > 0) updateMenuFocus(buttons);
-    // Reset switch scanning to the first tile
-    scanIndex = 0;
-    applyScanFocus();
-}
-
-function nextPage() {
-    if (currentPage < getTotalPages() - 1) {
-        currentPage++;
-        renderPage();
-        playSound('move');
-    }
-}
-
-function prevPage() {
-    if (currentPage > 0) {
-        currentPage--;
-        renderPage();
-        playSound('move');
-    }
-}
-
+const sources = new Map(), lastPress = {left: -Infinity, right: -Infinity};
+const holdTimers = new Map();
+let audioContext = null, lastSoundAt = -Infinity;
+const gameIds = ['space-invaders','snake','breakout','bubble-shooter','tetris','pong','flappy','dino',
+    'helicopter','rhythm','tank','asteroids','skiing','balance','simon','whack','airhockey',
+    'lander','fruit','stack','penalty','pinball','brickbuilder','spacedodge','wireloop'];
+const icons = ['space-invaders','snake','breakout','bubble','tetris','pong','flappy','dino',
+    'helicopter','rhythm','tank','asteroids','skiing','balance','simon','whack','airhockey',
+    'lander','fruit','stack','penalty','pinball','brickbuilder','spacedodge','wireloop'];
+const allGames = gameIds.map((id,i) => ({id, icon: icons[i]+'-icon'}));
+function gameClasses() { return [SpaceInvaders,Snake,Breakout,BubbleShooter,Tetris,Pong,Flappy,Dino,
+    Helicopter,Rhythm,Tank,Asteroids,Skiing,Balance,Simon,Whack,AirHockey,Lander,Fruit,Stack,
+    Penalty,Pinball,BrickBuilder,SpaceDodge,WireLoop]; }
+const $ = id => document.getElementById(id);
+const finite = (v,min,max,fallback) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? v : fallback;
 function loadSettings() {
-    const s = localStorage.getItem('switchGameSettings');
-    if (s) {
-        const p = JSON.parse(s);
-        settings.speed = p.speed || 5;
-        settings.soundEnabled = p.soundEnabled !== false;
-        if (['off', 'step', 'auto'].includes(p.scanMode)) settings.scanMode = p.scanMode;
-        if (p.scanSpeed >= 500 && p.scanSpeed <= 4000) settings.scanSpeed = p.scanSpeed;
-        if (p.debounce >= 0 && p.debounce <= 1000) settings.debounce = p.debounce;
-        settings.practiceMode = p.practiceMode === true;
+    const saved = storage.read('switchGameSettings', {});
+    if (saved && typeof saved === 'object') {
+        for (const key of ['soundEnabled','practiceMode','largeText','reducedMotion','spokenScan'])
+            if (typeof saved[key] === 'boolean') settings[key] = saved[key];
+        for (const [key,min,max] of [['speed',1,10],['scanSpeed',500,10000],['debounce',0,1000],['holdPause',0,10000]])
+            settings[key] = finite(saved[key],min,max,settings[key]);
+        if (['auto','step','off'].includes(saved.scanMode)) settings.scanMode = saved.scanMode;
+        if ([1,2].includes(saved.switchMode)) settings.switchMode = saved.switchMode;
     }
-    const sm = localStorage.getItem('switchModeSettings');
-    if (sm) { Object.assign(switchModeSettings, JSON.parse(sm)); }
-    const gs = localStorage.getItem('switchGameSpeeds');
-    if (gs) { Object.assign(gameSpeedSettings, JSON.parse(gs)); }
-    const hs = localStorage.getItem('switchGameHighScores');
-    if (hs) { Object.assign(highScores, JSON.parse(hs)); }
-}
-function saveSettings() { localStorage.setItem('switchGameSettings', JSON.stringify(settings)); }
-function saveSwitchModeSettings() { localStorage.setItem('switchModeSettings', JSON.stringify(switchModeSettings)); }
-function getSwitchMode(gameType) { return switchModeSettings[gameType] || 2; }
-function setSwitchMode(gameType, mode) { switchModeSettings[gameType] = mode; saveSwitchModeSettings(); }
-function getGameSpeed(gameType) { return gameSpeedSettings[gameType] || settings.speed; }
-function setGameSpeed(gameType, speed) { gameSpeedSettings[gameType] = speed; localStorage.setItem('switchGameSpeeds', JSON.stringify(gameSpeedSettings)); }
-function getHighScore(gameType) { return highScores[gameType] || 0; }
-function setHighScore(gameType, score) { highScores[gameType] = score; localStorage.setItem('switchGameHighScores', JSON.stringify(highScores)); }
-
-document.addEventListener('DOMContentLoaded', () => {
-    loadSettings();
-    loadLanguage();
-    document.getElementById('speed-slider').value = settings.speed;
-    document.getElementById('sound-toggle').checked = settings.soundEnabled;
-    canvas = document.getElementById('game-canvas');
-    ctx = canvas.getContext('2d');
-    setupEventListeners(); setupGamepad(); resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-    
-    // Language selector
-    document.getElementById('language-select').addEventListener('change', (e) => {
-        setLanguage(e.target.value);
-    });
-    
-    // Instructions settings toggle
-    document.getElementById('instructions-settings-btn').addEventListener('click', () => {
-        const panel = document.getElementById('instructions-settings-panel');
-        const btn = document.getElementById('instructions-settings-btn');
-        panel.classList.toggle('hidden');
-        btn.classList.toggle('active');
-    });
-    
-    // Instructions close button - return to main menu
-    document.getElementById('instructions-close-btn').addEventListener('click', () => {
-        document.getElementById('instructions').classList.add('hidden');
-        pendingGameType = null;
-    });
-    
-    // Instructions settings - sync with main settings
-    document.getElementById('instructions-speed-slider').addEventListener('input', e => {
-        settings.speed = parseInt(e.target.value);
-        document.getElementById('speed-slider').value = settings.speed;
-        saveSettings();
-        if (pendingGameType) setGameSpeed(pendingGameType, settings.speed);
-    });
-    
-    document.getElementById('instructions-sound-toggle').addEventListener('change', e => {
-        settings.soundEnabled = e.target.checked;
-        document.getElementById('sound-toggle').checked = settings.soundEnabled;
-        saveSettings();
-    });
-    
-    // Menu settings panel (scan mode, scan speed, debounce, practice mode)
-    document.getElementById('menu-settings-btn').addEventListener('click', () => {
-        document.getElementById('menu-settings-panel').classList.toggle('hidden');
-    });
-    const scanRadios = document.querySelectorAll('input[name="scan-mode"]');
-    scanRadios.forEach(r => {
-        r.checked = (r.value === settings.scanMode);
-        r.addEventListener('change', () => {
-            settings.scanMode = r.value; saveSettings();
-            scanIndex = 0; applyScanFocus(); ensureAutoScanTimer();
-        });
-    });
-    const scanSpeedSlider = document.getElementById('scan-speed-slider');
-    scanSpeedSlider.value = settings.scanSpeed;
-    scanSpeedSlider.addEventListener('input', e => {
-        settings.scanSpeed = parseInt(e.target.value); saveSettings(); ensureAutoScanTimer();
-    });
-    const debounceSlider = document.getElementById('debounce-slider');
-    debounceSlider.value = settings.debounce;
-    debounceSlider.addEventListener('input', e => {
-        settings.debounce = parseInt(e.target.value); saveSettings();
-    });
-    const practiceToggle = document.getElementById('practice-toggle');
-    practiceToggle.checked = settings.practiceMode;
-    practiceToggle.addEventListener('change', e => {
-        settings.practiceMode = e.target.checked; saveSettings();
-    });
-    ensureAutoScanTimer();
-
-    // Initialize pagination
-    renderPage();
-    document.getElementById('prev-page-btn').addEventListener('click', prevPage);
-    document.getElementById('next-page-btn').addEventListener('click', nextPage);
-    
-    // Start menu gamepad polling
-    function pollMenuGamepad() {
-        const mainMenu = document.getElementById('main-menu');
-        const gameOver = document.getElementById('game-over');
-        const instructions = document.getElementById('instructions');
-        if (mainMenu.classList.contains('active') || !gameOver.classList.contains('hidden') || !instructions.classList.contains('hidden')) {
-            pollGamepad();
-        }
-        requestAnimationFrame(pollMenuGamepad);
+    for (const [key,target,min,max] of [['switchModeSettings',switchModeSettings,1,2],['switchGameSpeeds',gameSpeedSettings,1,10],['switchGameHighScores',highScores,0,1e12]]) {
+        const data = storage.read(key, {});
+        if (!data || typeof data !== 'object') continue;
+        for (const id of gameIds) if (Number.isFinite(data[id]) && data[id]>=min && data[id]<=max && Number.isInteger(data[id])) target[id]=data[id];
     }
-    pollMenuGamepad();
-});
-
-function resizeCanvas() {
-    const h = document.querySelector('.game-header'), c = document.querySelector('.game-controls');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight - (h?.offsetHeight || 60) - (c?.offsetHeight || 100);
 }
-
-function setupEventListeners() {
-    document.getElementById('home-btn').addEventListener('click', goToMainMenu);
-    document.getElementById('settings-btn').addEventListener('click', () => document.getElementById('settings-panel').classList.toggle('hidden'));
-    document.getElementById('speed-slider').addEventListener('input', e => {
-        settings.speed = parseInt(e.target.value); saveSettings();
-        if (currentGameType) setGameSpeed(currentGameType, settings.speed);
-    });
-    document.getElementById('sound-toggle').addEventListener('change', e => { settings.soundEnabled = e.target.checked; saveSettings(); });
-    
-    const lb = document.getElementById('left-btn'), rb = document.getElementById('right-btn');
-    ['mousedown', 'touchstart'].forEach(e => {
-        lb.addEventListener(e, ev => { ev.preventDefault(); switchDown('left'); });
-        rb.addEventListener(e, ev => { ev.preventDefault(); switchDown('right'); });
-    });
-    ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(e => {
-        lb.addEventListener(e, () => switchUp('left'));
-        rb.addEventListener(e, () => switchUp('right'));
-    });
-    document.addEventListener('keydown', e => {
-        if (['ArrowLeft', '1', '3'].includes(e.key) && !e.repeat) switchDown('left');
-        if (['ArrowRight', '2', '4'].includes(e.key) && !e.repeat) switchDown('right');
-        if (e.key === 'Escape') {
-            if (document.getElementById('game-screen').classList.contains('active')) {
-                goToMainMenu();
-            } else if (!document.getElementById('instructions').classList.contains('hidden')) {
-                document.getElementById('instructions').classList.add('hidden');
-                pendingGameType = null;
-            }
-        }
-    });
-    document.addEventListener('keyup', e => {
-        if (['ArrowLeft', '1', '3'].includes(e.key)) switchUp('left');
-        if (['ArrowRight', '2', '4'].includes(e.key)) switchUp('right');
-    });
-    document.getElementById('restart-btn').addEventListener('click', restartGame);
-    document.getElementById('menu-btn').addEventListener('click', goToMainMenu);
-    document.getElementById('start-game-btn').addEventListener('click', () => {
-        if (pendingGameType) {
-            actuallyStartGame(pendingGameType);
-            pendingGameType = null;
-        }
-    });
+function saveSettings() { storage.write('switchGameSettings',settings); }
+function getSwitchMode(id) { return switchModeSettings[id] || settings.switchMode; }
+function setSwitchMode(id,mode) { switchModeSettings[id]=mode; storage.write('switchModeSettings',switchModeSettings); }
+function getGameSpeed(id) { return gameSpeedSettings[id] || settings.speed; }
+function setGameSpeed(id,speed) { gameSpeedSettings[id]=speed; storage.write('switchGameSpeeds',gameSpeedSettings); }
+function getHighScore(id) { return highScores[id] || 0; }
+function setHighScore(id,score) { highScores[id]=score; storage.write('switchGameHighScores',highScores); }
+function initAudio() {
+    if (!settings.soundEnabled) return;
+    try {
+        const Audio = window.AudioContext || window.webkitAudioContext;
+        if (Audio && !audioContext) audioContext = new Audio();
+        if (audioContext?.state === 'suspended') audioContext.resume().catch(()=>{});
+    } catch { /* Audio is optional. */ }
 }
-
-// ============================================
-// SWITCH INPUT (central entry point for keyboard + on-screen buttons)
-// ============================================
-const lastSwitchDown = { left: 0, right: 0 };
-
-function switchDown(side) {
-    const now = Date.now();
-    if (settings.debounce > 0 && now - lastSwitchDown[side] < settings.debounce) return;
-    lastSwitchDown[side] = now;
-    initAudio();
-    document.getElementById(side === 'left' ? 'left-btn' : 'right-btn').classList.add('pressed');
-    if (handleUiSwitch(side)) return; // consumed by menu / overlay navigation
-    input[side] = true;
-    input[side + 'Pressed'] = true;
+function playSound(type) {
+    if (!settings.soundEnabled || !audioContext || performance.now()-lastSoundAt<60) return;
+    lastSoundAt=performance.now();
+    const osc=audioContext.createOscillator(), gain=audioContext.createGain(), now=audioContext.currentTime;
+    osc.connect(gain); gain.connect(audioContext.destination);
+    const tones={low:220,high:660,move:330,hit:440,score:880,jump:550,shoot:770,beep:440,gameover:180,fanfare:1047};
+    osc.frequency.setValueAtTime(tones[type]||440,now);
+    gain.gain.setValueAtTime(0.08,now); gain.gain.exponentialRampToValueAtTime(0.001,now+0.18);
+    osc.onended=()=>{osc.disconnect();gain.disconnect();}; osc.start(now); osc.stop(now+0.2);
 }
-
-function switchUp(side) {
-    input[side] = false;
-    document.getElementById(side === 'left' ? 'left-btn' : 'right-btn').classList.remove('pressed');
+function announce(text, speak=false) {
+    $('live-status').textContent=text;
+    if (speak && settings.spokenScan && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); const utterance=new window.SpeechSynthesisUtterance(text);
+        utterance.lang=currentLanguage; window.speechSynthesis.speak(utterance);
+    }
 }
-
-// Routes a switch press to whatever UI is on screen. Returns true if consumed.
-function handleUiSwitch(side) {
-    const gameOverVisible = !document.getElementById('game-over').classList.contains('hidden');
-    const instructionsVisible = !document.getElementById('instructions').classList.contains('hidden');
-    if (gameOverVisible) { gameOverSwitch(side); return true; }
-    if (instructionsVisible) { instructionsSwitch(side); return true; }
-    if (document.getElementById('main-menu').classList.contains('active')) { menuSwitch(side); return true; }
-    return false;
+function getTotalPages() { return Math.ceil(allGames.length/gamesPerPage); }
+function renderPage() {
+    const grid=$('games-grid'); grid.replaceChildren();
+    allGames.slice(currentPage*gamesPerPage,(currentPage+1)*gamesPerPage).forEach(game=>{
+        const button=document.createElement('button');button.className='game-button';button.dataset.game=game.id;
+        const icon=document.createElement('span');icon.className='game-icon '+game.icon;icon.setAttribute('aria-hidden','true');
+        const label=document.createElement('span');label.className='game-label';label.textContent=getGameName(game.id);
+        button.append(icon,label);button.addEventListener('click',()=>{initAudio();startGame(game.id);});grid.append(button);
+    });
+    $('prev-page-btn').disabled=currentPage===0; $('next-page-btn').disabled=currentPage===getTotalPages()-1;
+    $('page-indicator').textContent=`${currentPage+1} / ${getTotalPages()}`;
+    resetScan();
 }
-
-// ============================================
-// MENU SCANNING (switch access to menus & overlays)
-// ============================================
-let scanIndex = 0;
-let gameOverScanIndex = 0;
-let autoScanTimer = null;
-let overlayShownAt = 0;             // when game-over / instructions appeared
-const OVERLAY_LOCKOUT = 1000;       // ignore switch presses this long after an overlay opens
-
-function getMenuScanTargets() {
-    const targets = [...document.querySelectorAll('.game-button')];
-    const next = document.getElementById('next-page-btn');
-    const prev = document.getElementById('prev-page-btn');
-    if (!next.disabled) targets.push(next);
-    if (!prev.disabled) targets.push(prev);
-    return targets;
+function nextPage() { if (currentPage<getTotalPages()-1) {currentPage++;renderPage();} }
+function prevPage() { if (currentPage>0) {currentPage--;renderPage();} }
+function visible(el) { return !!el && !el.disabled && !el.closest('[hidden]') && el.getClientRects().length>0; }
+function scanTargets() {
+    const root = dialogId ? $(dialogId) : $('main-menu');
+    return [...root.querySelectorAll('button,select,input')].filter(visible);
 }
-
+function scanLabel(el) { return el.getAttribute('aria-label') || el.textContent.trim(); }
 function applyScanFocus() {
-    document.querySelectorAll('.scan-focus').forEach(el => el.classList.remove('scan-focus'));
-    if (settings.scanMode === 'off') return;
-    const targets = getMenuScanTargets();
-    if (!targets.length) return;
-    if (scanIndex >= targets.length) scanIndex = 0;
-    // Scanning owns the highlight; clear the gamepad one to avoid two highlights
-    document.querySelectorAll('.gamepad-focus').forEach(el => el.classList.remove('gamepad-focus'));
-    targets[scanIndex].classList.add('scan-focus');
+    document.querySelectorAll('.scan-focus').forEach(el=>el.classList.remove('scan-focus'));
+    if (keyboardNavigation || settings.scanMode==='off' || (currentGame && !dialogId)) return;
+    const targets=scanTargets();if (!targets.length) return;
+    scanIndex=((scanIndex%targets.length)+targets.length)%targets.length;
+    targets[scanIndex].classList.add('scan-focus');targets[scanIndex].scrollIntoView({block:'nearest'});
+    announce(scanLabel(targets[scanIndex]),true);
 }
-
-function scanAdvance() {
-    const targets = getMenuScanTargets();
-    if (!targets.length) return;
-    scanIndex = (scanIndex + 1) % targets.length;
-    applyScanFocus();
-    playSound('move');
-}
-
-function scanSelect() {
-    const targets = getMenuScanTargets();
-    if (!targets.length) return;
-    if (scanIndex >= targets.length) scanIndex = 0;
-    const target = targets[scanIndex];
-    playSound('beep');
-    target.click();
-    // Page nav re-renders the grid; restart the scan from the first tile
-    if (target.classList.contains('nav-btn')) { scanIndex = 0; applyScanFocus(); }
-}
-
-function menuSwitch(side) {
-    if (settings.scanMode === 'off') return;
-    if (settings.scanMode === 'auto') { scanSelect(); return; }
-    if (side === 'right') scanAdvance(); else scanSelect();
-}
-
-function gameOverSwitch(side) {
-    if (Date.now() - overlayShownAt < OVERLAY_LOCKOUT) return;
-    if (settings.scanMode === 'auto') {
-        // Auto scan alternates the highlight between the two buttons; any switch selects
-        const buttons = [document.getElementById('restart-btn'), document.getElementById('menu-btn')];
-        playSound('beep');
-        buttons[gameOverScanIndex % 2].click();
-    } else {
-        if (side === 'left') restartGame(); else goToMainMenu();
-    }
-}
-
-function instructionsSwitch(side) {
-    if (Date.now() - overlayShownAt < OVERLAY_LOCKOUT) return;
-    document.getElementById('start-game-btn').click();
-}
-
-function applyGameOverScanFocus() {
-    const rb = document.getElementById('restart-btn'), mb = document.getElementById('menu-btn');
-    rb.classList.remove('scan-focus'); mb.classList.remove('scan-focus');
-    if (settings.scanMode !== 'auto') return;
-    (gameOverScanIndex % 2 === 0 ? rb : mb).classList.add('scan-focus');
-}
-
+function resetScan() { scanIndex=0; applyScanFocus(); ensureAutoScanTimer(); }
 function ensureAutoScanTimer() {
-    if (autoScanTimer) clearInterval(autoScanTimer);
-    autoScanTimer = setInterval(() => {
-        if (settings.scanMode !== 'auto') return;
-        const gameOverVisible = !document.getElementById('game-over').classList.contains('hidden');
-        if (gameOverVisible) {
-            gameOverScanIndex = (gameOverScanIndex + 1) % 2;
-            applyGameOverScanFocus();
-            playSound('move');
-        } else if (document.getElementById('main-menu').classList.contains('active')) {
-            scanAdvance();
-        }
-    }, settings.scanSpeed);
+    clearTimeout(scanTimer);
+    if (keyboardNavigation || settings.scanMode!=='auto' || (currentGame&&!dialogId) || document.hidden) return;
+    const guard=dialogId ? Math.max(0,overlayShownAt+LOCKOUT-performance.now()) : 0;
+    scanTimer=setTimeout(()=>{scanAdvance();ensureAutoScanTimer();},settings.scanSpeed+guard);
 }
-
-let gamepadIndex = null;
-let gamepadMenuIndex = 0;
-let gamepadLastNav = 0;
-const NAV_DELAY = 200;
-
-function setupGamepad() {
-    window.addEventListener('gamepadconnected', e => gamepadIndex = e.gamepad.index);
-    window.addEventListener('gamepaddisconnected', () => gamepadIndex = null);
+function scanAdvance() { scanIndex++; applyScanFocus();playSound('move'); }
+function scanSelect() {
+    if (dialogId && performance.now()-overlayShownAt<LOCKOUT) return;
+    const targets=scanTargets();targets[scanIndex%targets.length]?.click();
+    ensureAutoScanTimer();
 }
-
-function pollGamepad() {
-    if (gamepadIndex === null) return;
-    const g = navigator.getGamepads()[gamepadIndex]; if (!g) return;
-    
-    const now = Date.now();
-    const dpadLeft = g.buttons[14]?.pressed || g.axes[0] < -0.5;
-    const dpadRight = g.buttons[15]?.pressed || g.axes[0] > 0.5;
-    const dpadUp = g.buttons[12]?.pressed || g.axes[1] < -0.5;
-    const dpadDown = g.buttons[13]?.pressed || g.axes[1] > 0.5;
-    const btnA = g.buttons[0]?.pressed;
-    const btnB = g.buttons[1]?.pressed;
-    const btnX = g.buttons[2]?.pressed;
-    const btnY = g.buttons[3]?.pressed;
-    const shoulderL = g.buttons[4]?.pressed;
-    const shoulderR = g.buttons[5]?.pressed;
-    
-    // Check if we're on the main menu
-    const mainMenu = document.getElementById('main-menu');
-    if (mainMenu.classList.contains('active')) {
-        const buttons = document.querySelectorAll('.game-button');
-        const cols = getMenuColumns();
-        
-        if (now - gamepadLastNav > NAV_DELAY) {
-            // Navigate within page grid
-            if (dpadUp) { 
-                gamepadMenuIndex = Math.max(0, gamepadMenuIndex - cols); 
-                gamepadLastNav = now; 
-                updateMenuFocus(buttons); 
-                playSound('move');
-            }
-            if (dpadDown) { 
-                gamepadMenuIndex = Math.min(buttons.length - 1, gamepadMenuIndex + cols); 
-                gamepadLastNav = now; 
-                updateMenuFocus(buttons); 
-                playSound('move');
-            }
-            if (dpadLeft) {
-                if (gamepadMenuIndex % cols === 0 && currentPage > 0) {
-                    // At left edge, go to previous page
-                    currentPage--;
-                    renderPage();
-                    gamepadMenuIndex = cols - 1; // Move to right side of previous page
-                    const newButtons = document.querySelectorAll('.game-button');
-                    updateMenuFocus(newButtons);
-                } else if (gamepadMenuIndex > 0) {
-                    gamepadMenuIndex--;
-                    updateMenuFocus(buttons);
-                    playSound('move');
-                }
-                gamepadLastNav = now;
-            }
-            if (dpadRight) {
-                const atRightEdge = (gamepadMenuIndex + 1) % cols === 0 || gamepadMenuIndex === buttons.length - 1;
-                if (atRightEdge && currentPage < getTotalPages() - 1) {
-                    // At right edge, go to next page
-                    currentPage++;
-                    renderPage();
-                    gamepadMenuIndex = 0; // Move to left side of next page
-                    const newButtons = document.querySelectorAll('.game-button');
-                    updateMenuFocus(newButtons);
-                } else if (gamepadMenuIndex < buttons.length - 1) {
-                    gamepadMenuIndex++;
-                    updateMenuFocus(buttons);
-                    playSound('move');
-                }
-                gamepadLastNav = now;
-            }
-            
-            // Shoulder buttons for quick page navigation
-            if (shoulderL && currentPage > 0) { 
-                prevPage(); 
-                gamepadLastNav = now; 
-            }
-            if (shoulderR && currentPage < getTotalPages() - 1) { 
-                nextPage(); 
-                gamepadLastNav = now; 
-            }
-        }
-        
-        if (btnA || btnB || btnX || btnY) {
-            if (buttons[gamepadMenuIndex] && now - gamepadLastNav > NAV_DELAY) {
-                gamepadLastNav = now;
-                initAudio();
-                startGame(buttons[gamepadMenuIndex].dataset.game);
-            }
-        }
-    } else {
-        // In game - D-pad and face buttons control left/right actions
-        const l = dpadLeft || btnX || btnY;
-        const r = dpadRight || btnA || btnB;
-        
-        if (l && !input.left) { input.left = true; input.leftPressed = true; document.getElementById('left-btn').classList.add('pressed'); }
-        else if (!l) { input.left = false; document.getElementById('left-btn').classList.remove('pressed'); }
-        
-        if (r && !input.right) { input.right = true; input.rightPressed = true; document.getElementById('right-btn').classList.add('pressed'); }
-        else if (!r) { input.right = false; document.getElementById('right-btn').classList.remove('pressed'); }
-        
-        // Handle game over screen navigation
-        const gameOver = document.getElementById('game-over');
-        if (!gameOver.classList.contains('hidden') && now - overlayShownAt > OVERLAY_LOCKOUT) {
-            if ((btnA || btnB) && now - gamepadLastNav > NAV_DELAY) {
-                gamepadLastNav = now;
-                restartGame();
-            }
-            if ((btnX || btnY) && now - gamepadLastNav > NAV_DELAY) {
-                gamepadLastNav = now;
-                goToMainMenu();
-            }
-        }
-
-        // Handle instructions screen
-        const instructions = document.getElementById('instructions');
-        if (!instructions.classList.contains('hidden') && now - overlayShownAt > OVERLAY_LOCKOUT) {
-            if ((btnA || btnB || btnX || btnY) && now - gamepadLastNav > NAV_DELAY) {
-                gamepadLastNav = now;
-                if (pendingGameType) {
-                    actuallyStartGame(pendingGameType);
-                    pendingGameType = null;
-                }
-            }
-        }
-    }
+function trapFocus(e) {
+    if (!dialogId || e.key!=='Tab') return;
+    const controls=scanTargets();if (!controls.length) return;
+    const index=controls.indexOf(document.activeElement);
+    if (e.shiftKey && index<=0) {e.preventDefault();controls.at(-1).focus();}
+    else if (!e.shiftKey && (index===controls.length-1 || index<0)) {e.preventDefault();controls[0].focus();}
 }
-
-function getMenuColumns() {
-    const width = window.innerWidth;
-    if (width <= 480) return 2;
-    return 3;
+function openDialog(id) {
+    if (!dialogId) lastFocus=document.activeElement;
+    document.querySelectorAll('.overlay').forEach(el=>el.hidden=el.id!==id);
+    dialogId=id; $('main-menu').inert=true; $('game-screen').inert=true;
+    overlayShownAt=performance.now(); clearInputs();
+    $(id).querySelector('button')?.focus();resetScan();
 }
-
-function updateMenuFocus(buttons) {
-    // Gamepad takes over the highlight; drop any switch-scan highlight
-    document.querySelectorAll('.scan-focus').forEach(el => el.classList.remove('scan-focus'));
-    buttons.forEach((btn, i) => {
-        btn.classList.remove('gamepad-focus');
-        if (i === gamepadMenuIndex) {
-            btn.classList.add('gamepad-focus');
-        }
-    });
+function closeDialog() {
+    document.querySelectorAll('.overlay').forEach(el=>el.hidden=true);
+    dialogId=null;$('main-menu').inert=false;$('game-screen').inert=false;
+    if (lastFocus?.isConnected && visible(lastFocus)) lastFocus.focus();
+    lastFrame=null;accumulator=0;resetScan();
 }
-
-let returnPage = 0;
-
-function goToMainMenu() {
-    if (gameLoop) { cancelAnimationFrame(gameLoop); gameLoop = null; }
-    currentGame = null; input.left = input.right = false;
-    document.getElementById('game-screen').classList.remove('active');
-    document.getElementById('main-menu').classList.add('active');
-    document.getElementById('game-over').classList.add('hidden');
-    document.getElementById('settings-panel').classList.add('hidden');
-    document.getElementById('instructions').classList.add('hidden');
-    currentPage = returnPage;
-    gamepadMenuIndex = 0;
-    renderPage();
-}
-
-function showInstructions(gameType) {
-    const gameName = typeof getGameName === 'function' ? getGameName(gameType) : gameType;
-    const instructionText = typeof getGameInstructions === 'function' ? getGameInstructions(gameType) : '';
-    
-    if (!instructionText) { actuallyStartGame(gameType); return; }
-    
-    document.getElementById('instructions-title').textContent = gameName;
-    document.getElementById('instructions-text').textContent = instructionText;
-    
-    // Reset settings panel state (collapsed by default)
-    document.getElementById('instructions-settings-panel').classList.add('hidden');
-    document.getElementById('instructions-settings-btn').classList.remove('active');
-    
-    // Sync settings values (speed shows this game's remembered speed)
-    document.getElementById('instructions-speed-slider').value = getGameSpeed(gameType);
-    document.getElementById('instructions-sound-toggle').checked = settings.soundEnabled;
-    
-    // Set switch mode radio to saved value
-    const savedMode = getSwitchMode(gameType);
-    const radios = document.querySelectorAll('input[name="switch-mode"]');
-    radios.forEach(r => r.checked = (parseInt(r.value) === savedMode));
-    
-    document.getElementById('instructions').classList.remove('hidden');
-    overlayShownAt = Date.now(); // lockout so the press that picked the game doesn't also start it
-
-    pendingGameType = gameType;
-}
-
-let pendingGameType = null;
-
 function startGame(type) {
-    showInstructions(type);
+    pendingGameType=type;$('instructions-title').textContent=getGameName(type);
+    updateInstructions();openDialog('instructions');
 }
-
+function updateInstructions() {
+    if (!pendingGameType) return;
+    $('instructions-text').textContent=getGameInstructions(pendingGameType,getSwitchMode(pendingGameType));
+    $('game-mode-btn').textContent=`${ui('switches')}: ${getSwitchMode(pendingGameType)}`;
+    $('game-speed-value').textContent=getGameSpeed(pendingGameType);
+}
 function actuallyStartGame(type) {
-    // Save the selected switch mode
-    const selectedMode = document.querySelector('input[name="switch-mode"]:checked');
-    if (selectedMode) {
-        setSwitchMode(type, parseInt(selectedMode.value));
-    }
-    
-    returnPage = currentPage;
-    currentGameType = type;
-    document.getElementById('main-menu').classList.remove('active');
-    document.getElementById('game-screen').classList.add('active');
-    document.getElementById('game-over').classList.add('hidden');
-    document.getElementById('settings-panel').classList.add('hidden');
-    document.getElementById('instructions').classList.add('hidden');
-    document.getElementById('speed-slider').value = getGameSpeed(type);
-    document.getElementById('practice-badge').classList.toggle('hidden', !settings.practiceMode);
-    resizeCanvas();
-    
-    const games = { 'space-invaders': SpaceInvaders, 'snake': Snake, 'breakout': Breakout, 'bubble-shooter': BubbleShooter,
-        'tetris': Tetris, 'pong': Pong, 'flappy': Flappy, 'dino': Dino, 'helicopter': Helicopter,
-        'rhythm': Rhythm, 'tank': Tank, 'asteroids': Asteroids, 'skiing': Skiing,
-        'balance': Balance, 'simon': Simon, 'whack': Whack, 'airhockey': AirHockey, 'lander': Lander, 'fruit': Fruit,
-        'stack': Stack, 'penalty': Penalty, 'pinball': Pinball, 'brickbuilder': BrickBuilder, 'spacedodge': SpaceDodge,
-        'wireloop': WireLoop };
-    currentGame = new games[type]();
-    currentGame.switchMode = getSwitchMode(type); // Pass switch mode to game
-    currentGame.init();
-    runGameLoop();
+    const Game=gameClasses()[gameIds.indexOf(type)];if (!Game) return;
+    returnPage=currentPage;currentGameType=type;pendingGameType=null;
+    $('main-menu').classList.remove('active');$('game-screen').classList.add('active');
+    closeDialog();paused=false;simulationTime=0;recoveryUntil=0;clearInputs();
+    currentGame=new Game();currentGame.switchMode=getSwitchMode(type);currentGame.init();
+    canvas.setAttribute('aria-label',getGameName(type));
+    lastGameStatus='';lastGameAnnouncement=0;
+    $('canvas-description').textContent=getGameName(type)+'. '+getGameInstructions(type,currentGame.switchMode);
+    updateControls();resizeCanvas();resetScan();$('pause-btn').focus();
+    announce(getGameName(type)+'. '+ui('holdHint'));
 }
-
-function restartGame() { document.getElementById('game-over').classList.add('hidden'); if (currentGame) { currentGame.init(); runGameLoop(); } }
-
-function runGameLoop() {
-    if (!currentGame) return;
-    pollGamepad();
-    currentGame.update(0.5 + getGameSpeed(currentGameType) / 10);
-    currentGame.draw();
-    const scoreText = typeof getTranslation === 'function' ? getTranslation('score') : 'SCORE';
-    const levelText = typeof getTranslation === 'function' ? getTranslation('level') : 'LEVEL';
-    document.getElementById('score-display').innerHTML = `<span data-i18n="score">${scoreText}</span>: ${currentGame.score}`;
-    document.getElementById('level-display').innerHTML = `<span data-i18n="level">${levelText}</span>: ${currentGame.level}`;
-    input.leftPressed = input.rightPressed = false;
-    if (!currentGame.gameOver) gameLoop = requestAnimationFrame(runGameLoop);
-    else if (settings.practiceMode) {
-        // Practice mode: no game over — restart the round, keep score and level
-        const s = currentGame.score, l = currentGame.level;
-        currentGame.gameOver = false;
-        currentGame.init();
-        currentGame.score = s;
-        currentGame.level = l;
-        playSound('low');
-        gameLoop = requestAnimationFrame(runGameLoop);
-    } else {
-        showGameOver();
-    }
+function goToMainMenu() {
+    const wasPlaying=!!currentGame;
+    currentGame=null;pendingGameType=null;paused=false;clearInputs();closeDialog();
+    $('game-screen').classList.remove('active');$('main-menu').classList.add('active');
+    if(wasPlaying)currentPage=returnPage;renderPage();
+    const button=document.querySelector(`[data-game="${currentGameType}"]`);(button||$('menu-settings-btn')).focus();
 }
-
+function restartGame() { if (currentGameType) actuallyStartGame(currentGameType); }
+function pauseGame() { if (!currentGame || dialogId==='game-over') return;paused=true;openDialog('pause-dialog');announce(ui('paused')); }
+function resumeGame() { if (!currentGame) return;clearInputs();closeDialog();paused=false;lastFrame=null;accumulator=0; }
+function openSettings() { if (currentGame) paused=true;updateSettings();openDialog('settings-dialog'); }
+function settingsBack() { if (currentGame) pauseGame();else closeDialog(); }
+function updateSettings() {
+    $('profile-btn').textContent=`${ui('switches')}: ${settings.switchMode}`;
+    $('scan-mode-btn').textContent=`${ui('scan')}: ${ui(settings.scanMode)}`;
+    $('scan-speed-btn').textContent=`${ui('scan')}: ${(settings.scanSpeed/1000).toLocaleString(currentLanguage)} s`;
+    $('debounce-btn').textContent=`${ui('debounce')}: ${settings.debounce} ms`;
+    $('hold-btn').textContent=`${ui('pause')}: ${settings.holdPause ? settings.holdPause/1000+' s' : ui('off')}`;
+    for (const [id,key,label] of [['practice-btn','practiceMode','practice'],['sound-btn','soundEnabled','sound'],['speech-btn','spokenScan','speech'],['text-btn','largeText','largeText'],['motion-btn','reducedMotion','reduceMotion']]) {
+        $(id).textContent=ui(label)+': '+ui(settings[key]?'on':'off');$(id).setAttribute('aria-pressed',String(settings[key]));
+    }
+    document.body.classList.toggle('large-text',settings.largeText);
+    document.body.classList.toggle('reduce-motion',settings.reducedMotion);
+    $('menu-help').textContent=ui(settings.scanMode==='auto'?'autoHint':settings.scanMode==='step'?'stepHint':'offHint');
+    $('hold-help').textContent=settings.holdPause ? ui('holdHint') : ui('pause')+': P';
+}
+function changedSettings() {saveSettings();updateSettings();updateControls();ensureAutoScanTimer();applyScanFocus();}
+function updateControls() {
+    const vertical=['pong','airhockey'].includes(currentGameType), one=currentGame?.switchMode===1;
+    const labels=vertical ? [ui('up'),ui('down')] : [ui('left'),ui('right')];
+    if (one || ['flappy','helicopter','lander','bubble-shooter','stack'].includes(currentGameType)) labels.fill(ui('action'));
+    ['left','right'].forEach((side,i)=>{$(side+'-btn').textContent=labels[i];$(side+'-btn').setAttribute('aria-label',labels[i]);});
+    $('practice-badge').hidden=!settings.practiceMode;
+}
+// A logical playing area keeps hitboxes, goals and control coverage consistent across devices.
+// Resizing only changes presentation, never the positions in an active round.
+function resizeCanvas() {
+    if (!canvas) return;
+    const rect=$('play-area').getBoundingClientRect();
+    const scale=Math.min(rect.width/canvas.width,rect.height/canvas.height);
+    canvas.style.width=Math.max(1,canvas.width*scale)+'px';canvas.style.height=Math.max(1,canvas.height*scale)+'px';
+}
+function clearInputs() {
+    sources.clear();holdTimers.forEach(clearTimeout);holdTimers.clear();
+    for (const side of ['left','right']) {input[side]=input[side+'Pressed']=false;$(side+'-btn')?.classList.remove('pressed');}
+}
+function syncHeld() {
+    for (const side of ['left','right']) {input[side]=[...sources.values()].includes(side);$(side+'-btn').classList.toggle('pressed',input[side]);}
+}
+function switchDown(side,source='keyboard:'+side) {
+    if (sources.has(source)) return;
+    if(keyboardNavigation){keyboardNavigation=false;applyScanFocus();ensureAutoScanTimer();}
+    sources.set(source,side);initAudio();
+    if (currentGame&&!dialogId&&!paused&&settings.holdPause) holdTimers.set(source,setTimeout(()=>{if(sources.has(source))pauseGame();},settings.holdPause));
+    if (!currentGame && settings.scanMode==='off') holdTimers.set(source,setTimeout(()=>{
+        if(sources.has(source)){settings.scanMode='auto';saveSettings();openSettings();}
+    },2500));
+    const now=performance.now();if (now-lastPress[side]<settings.debounce) {syncHeld();return;}
+    lastPress[side]=now;
+    if (dialogId || !currentGame) {
+        if (settings.scanMode==='auto') scanSelect();
+        else if (settings.scanMode==='step') {if(side==='right')scanAdvance();else scanSelect();}
+    } else {input[side+'Pressed']=true;syncHeld();}
+}
+function switchUp(side,source='keyboard:'+side) {
+    sources.delete(source);clearTimeout(holdTimers.get(source));holdTimers.delete(source);syncHeld();
+}
+const padPrevious=new Map();
+function pollGamepad() {
+    if(document.hidden)return;
+    const pads=navigator.getGamepads?.()||[];const seen=new Set();
+    for (const pad of pads) {
+        if (!pad) continue;
+        // Face buttons 0/1 and dpad/axis operate the same two logical switches everywhere.
+        const held={left:!!(pad.buttons[2]?.pressed||pad.buttons[3]?.pressed||pad.buttons[14]?.pressed||pad.axes[0]<-0.5),
+            right:!!(pad.buttons[0]?.pressed||pad.buttons[1]?.pressed||pad.buttons[15]?.pressed||pad.axes[0]>0.5)};
+        for(const side of ['left','right']) {
+            const key='pad:'+pad.index+':'+side;seen.add(key);
+            if (held[side]&&!padPrevious.get(key)) switchDown(side,key);
+            else if (!held[side]&&padPrevious.get(key)) switchUp(side,key);
+            padPrevious.set(key,held[side]);
+        }
+    }
+    for (const [key,held] of padPrevious) if (!seen.has(key)) {if(held)switchUp(key.endsWith('left')?'left':'right',key);padPrevious.delete(key);}
+}
 function showGameOver() {
-    const score = currentGame.score;
-    const previousBest = getHighScore(currentGameType);
-    const isRecord = score > 0 && score > previousBest;
-    if (isRecord) setHighScore(currentGameType, score);
-
-    document.getElementById('final-score').textContent = score;
-    document.getElementById('best-score').textContent = Math.max(score, previousBest);
-
-    const recordEl = document.getElementById('new-record');
-    recordEl.classList.toggle('hidden', !isRecord);
-    if (isRecord) recordEl.textContent = getTranslation('newRecord');
-
-    const encourageEl = document.getElementById('encouragement');
-    if (isRecord) {
-        encourageEl.textContent = '';
-    } else {
-        const n = 1 + Math.floor(Math.random() * 4);
-        encourageEl.textContent = getTranslation('encourage' + n);
-    }
-
-    if (isRecord) { playSound('fanfare'); spawnConfetti(); }
-    else playSound('gameover');
-
-    overlayShownAt = Date.now(); // lockout so a press in flight at death doesn't instantly restart
-    gameOverScanIndex = 0;
-    applyGameOverScanFocus();
-    document.getElementById('game-over').classList.remove('hidden');
+    const score=currentGame.score, best=getHighScore(currentGameType), record=score>best;
+    if (record) setHighScore(currentGameType,score);
+    $('final-score').textContent=score;$('best-score').textContent=Math.max(best,score);
+    $('new-record').hidden=!record;$('new-record').textContent=getTranslation('newRecord');
+    $('encouragement').textContent=getTranslation('encourage'+(1+Math.floor(Math.random()*4)));
+    playSound(record?'fanfare':'gameover');openDialog('game-over');
+    announce(getTranslation('gameOver')+'. '+getTranslation('score')+': '+score);
+    if(record&&!settings.reducedMotion&&!matchMedia('(prefers-reduced-motion: reduce)').matches)spawnConfetti();
 }
-
 function spawnConfetti() {
-    const overlay = document.getElementById('game-over');
-    const colors = ['#ff0066', '#00ffff', '#ffff00', '#00ff66', '#ff6600', '#ff00ff'];
-    for (let i = 0; i < 60; i++) {
-        const c = document.createElement('div');
-        c.className = 'confetti';
-        c.style.left = Math.random() * 100 + '%';
-        c.style.background = colors[Math.floor(Math.random() * colors.length)];
-        c.style.animationDelay = Math.random() * 0.8 + 's';
-        c.style.animationDuration = (1.8 + Math.random() * 1.5) + 's';
-        c.style.width = c.style.height = (6 + Math.random() * 6) + 'px';
-        overlay.appendChild(c);
-        setTimeout(() => c.remove(), 4000);
-    }
+    for(let i=0;i<20;i++) {const c=document.createElement('span');c.className='confetti';c.setAttribute('aria-hidden','true');c.style.left=Math.random()*100+'%';c.style.background=['#ff0066','#00ffff','#ffff00'][i%3];c.style.width=c.style.height='8px';c.style.animationDuration='2s';$('game-over').append(c);setTimeout(()=>c.remove(),2200);}
 }
+// Per-game recovery preserves the round; completed timers are explicitly renewed.
+function recoverPractice(g) {
+    switch(currentGameType) {
+        case 'space-invaders': g.enemyBullets=[];g.enemies.forEach(e=>e.y=Math.min(e.y,canvas.height/2));break;
+        case 'snake': { const size=g.snake.length;g.dir=0;g.snake=Array.from({length:Math.min(size,10)},(_,i)=>({x:300-i*20,y:300}));break; }
+        case 'breakout':g.ball.x=canvas.width/2;g.ball.y=canvas.height/2;g.ball.dy=-Math.abs(g.ball.dy);break;
+        case 'bubble-shooter': {const score=g.score;g.createBubbles();g.score=score;break;}
+        case 'tetris':g.grid=Array.from({length:g.gh},()=>Array(g.gw).fill(0));g.spawn();break;
+        case 'pong':g.aiScore=0;g.resetBall();break;
+        case 'flappy':g.bird.y=canvas.height/2;g.bird.vy=0;g.pipes=[];break;
+        case 'dino':g.obstacles=[];g.dino.y=g.ground;g.dino.vy=0;g.jumping=false;break;
+        case 'helicopter':g.heli.y=canvas.height/2;g.heli.vy=0;g.walls=[];break;
+        case 'rhythm':g.misses=0;g.notes=[];break;
+        case 'tank':g.enemies=[];break;
+        case 'asteroids':g.asteroids.forEach(a=>{a.x=20;a.y=20;});break;
+        case 'skiing':g.trees=[];break;
+        case 'balance':g.ball.x=canvas.width/2;g.ball.vx=0;g.platform.angle=0;g.platform.angVel=0;break;
+        case 'simon':g.playerSeq=[];g.showingSeq=true;g.showIndex=0;g.showTimer=0;g.flash=null;g.inputEnabled=false;break;
+        case 'whack':g.timeLeft=30000;break;
+        case 'airhockey':g.aiScore=0;g.resetPuck(1);break;
+        case 'lander':g.lander={x:canvas.width/2,y:50,vx:0,vy:0,fuel:100};break;
+        case 'fruit':g.misses=0;g.fruits=[];break;
+        case 'stack':g.current={x:0,w:g.blocks.at(-1).w,dir:1,speed:3};break;
+        case 'penalty':g.misses=0;g.ball=null;g.shooting=false;g.preparing=true;g.prepTimer=1000;break;
+        case 'pinball':g.balls=3;g.ball={x:canvas.width/2,y:canvas.height/2,vx:2,vy:-4,r:10};break;
+        case 'brickbuilder':g.grid=Array.from({length:g.gridH},()=>Array(g.gridW).fill(0));g.spawnBlock();break;
+        case 'spacedodge':g.asteroids=[];g.shield=3000;break;
+        case 'wireloop':g.lives=3;g.ringY=g.getWireY(g.ringPos);g.touchTimer=0;break;
+    }
+    g.gameOver=false;clearInputs();recoveryUntil=simulationTime+1000;announce(ui('practice'));
+}
+function fixedUpdate() {
+    if (!currentGame || dialogId || paused) return;
+    simulationTime+=STEP;
+    if (simulationTime<recoveryUntil) return;
+    currentGame.update(0.5+getGameSpeed(currentGameType)/10);
+    input.leftPressed=input.rightPressed=false;
+    if (currentGame.gameOver) {if(settings.practiceMode)recoverPractice(currentGame);else showGameOver();}
+}
+function runGameLoop(timestamp) {
+    pollGamepad();
+    if (lastFrame===null) lastFrame=timestamp;
+    const elapsed=Math.min(100,Math.max(0,timestamp-lastFrame));lastFrame=timestamp;
+    if (currentGame&&!paused&&!dialogId&&!document.hidden) {
+        accumulator+=elapsed;
+        while(accumulator>=STEP) {fixedUpdate();accumulator-=STEP;if(dialogId)break;}
+    } else accumulator=0;
+    if (currentGame && !paused && !dialogId && !document.hidden) {
+        ctx.save();currentGame.draw();ctx.restore();
+        $('score-value').textContent=currentGame.score;$('level-value').textContent=currentGame.level;
+        updateAccessibleGameState();
+    }
+    requestAnimationFrame(runGameLoop);
+}
+let lastGameStatus='',lastGameAnnouncement=0;
+function updateAccessibleGameState() {
+    const g=currentGame;let message='';
+    if(currentGameType==='simon')message=g.showingSeq?ui('watch')+(g.flash===null?'':' '+ui(g.flash===0?'left':'right')):(g.inputEnabled?ui('yourTurn')+' '+ui((g.switchMode===1?g.answerScan:g.sequence[g.playerSeq.length])===0?'left':'right'):'');
+    if(currentGameType==='whack')message=g.moles.map((m,i)=>m.up?ui(i===0?'left':'right'):'').filter(Boolean).join(' ');
+    if(currentGameType==='fruit')message=[0,1].filter(side=>g.fruits.some(f=>!f.sliced&&f.side===side&&f.y<canvas.height-50)).map(side=>ui(side===0?'left':'right')).join(' ');
+    $('game-cue').textContent=message;
+    if(message&&message!==lastGameStatus){announce(message,true);lastGameStatus=message;}
+    if(simulationTime-lastGameAnnouncement>5000){$('game-status').textContent=getTranslation('score')+': '+g.score+'. '+getTranslation('level')+': '+g.level;lastGameAnnouncement=simulationTime;}
+}
+function setupEventListeners() {
+    $('prev-page-btn').onclick=prevPage;$('next-page-btn').onclick=nextPage;
+    $('menu-settings-btn').onclick=$('settings-btn').onclick=openSettings;
+    $('pause-btn').onclick=pauseGame;$('home-btn').onclick=goToMainMenu;
+    $('resume-btn').onclick=resumeGame;$('pause-menu-btn').onclick=goToMainMenu;
+    $('pause-settings-btn').onclick=openSettings;
+    $('restart-btn').onclick=restartGame;$('menu-btn').onclick=goToMainMenu;
+    $('instructions-close-btn').onclick=()=>{pendingGameType=null;closeDialog();};
+    $('start-game-btn').onclick=()=>{if(pendingGameType)actuallyStartGame(pendingGameType);};
+    $('game-mode-btn').onclick=()=>{setSwitchMode(pendingGameType,getSwitchMode(pendingGameType)===1?2:1);updateInstructions();};
+    for(const [id,delta]of [['slower-btn',-1],['faster-btn',1]])$(id).onclick=()=>{setGameSpeed(pendingGameType,Math.max(1,Math.min(10,getGameSpeed(pendingGameType)+delta)));updateInstructions();};
+    $('settings-close-btn').onclick=settingsBack;
+    $('profile-btn').onclick=()=>{settings.switchMode=settings.switchMode===1?2:1;settings.scanMode=settings.switchMode===1?'auto':'step';for(const key of gameIds)delete switchModeSettings[key];storage.write('switchModeSettings',switchModeSettings);changedSettings();};
+    $('scan-mode-btn').onclick=()=>{const modes=['auto','step','off'];settings.scanMode=modes[(modes.indexOf(settings.scanMode)+1)%modes.length];changedSettings();};
+    for(const [id,key,values]of [['scan-speed-btn','scanSpeed',[1000,1500,2000,3000,4000,6000,8000,10000]],['debounce-btn','debounce',[0,100,200,300,500,750,1000]],['hold-btn','holdPause',[0,1500,2500,4000,6000]]])$(id).onclick=()=>{settings[key]=values[(values.indexOf(settings[key])+1)%values.length];changedSettings();};
+    for(const [id,key]of [['practice-btn','practiceMode'],['sound-btn','soundEnabled'],['speech-btn','spokenScan'],['text-btn','largeText'],['motion-btn','reducedMotion']])$(id).onclick=()=>{settings[key]=!settings[key];changedSettings();};
+    $('language-btn').onclick=()=>{const root=$('language-options');root.replaceChildren();availableLanguages.filter(l=>translations[l.code]).forEach(l=>{const b=document.createElement('button');b.textContent=l.name;b.lang=l.code;b.onclick=()=>{setLanguage(l.code);openSettings();};root.append(b);});openDialog('language-dialog');};
+    $('language-back-btn').onclick=openSettings;
+    document.addEventListener('keydown',e=>{
+        trapFocus(e);
+        if(e.key==='Tab') {
+            keyboardNavigation=true;clearTimeout(scanTimer);
+            document.querySelectorAll('.scan-focus').forEach(el=>el.classList.remove('scan-focus'));
+            return;
+        }
+        if(e.key==='Escape'||e.key==='Home') {e.preventDefault();if(dialogId==='instructions')$('instructions-close-btn').click();else if(dialogId==='settings-dialog')settingsBack();else if(dialogId==='language-dialog')openSettings();else goToMainMenu();return;}
+        if(e.key.toLowerCase()==='p'&&currentGame&&!e.repeat){e.preventDefault();if(paused)resumeGame();else pauseGame();return;}
+        if(e.target.matches('input,select,textarea,[contenteditable="true"]'))return;
+        const side=['ArrowLeft','1','3'].includes(e.key)?'left':['ArrowRight','2','4'].includes(e.key)?'right':null;
+        if(side){e.preventDefault();if(!e.repeat)switchDown(side,'key:'+e.code);}
+        else if([' ','Enter'].includes(e.key)&&!e.target.closest('button,a')) {e.preventDefault();if(!e.repeat)switchDown('left','key:'+e.code);}
+    });
+    document.addEventListener('keyup',e=>{const source='key:'+e.code;if(sources.has(source))switchUp(sources.get(source),source);});
+    for(const side of ['left','right']) {
+        const button=$(side+'-btn');
+        button.addEventListener('pointerdown',e=>{e.preventDefault();button.setPointerCapture(e.pointerId);switchDown(side,'pointer:'+e.pointerId);});
+        for(const event of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(event,e=>switchUp(side,'pointer:'+e.pointerId));
+        button.addEventListener('keydown',e=>{if([' ','Enter'].includes(e.key)){e.preventDefault();if(!e.repeat)switchDown(side,'button:'+side);}});
+        button.addEventListener('keyup',e=>{if([' ','Enter'].includes(e.key)){e.preventDefault();switchUp(side,'button:'+side);}});
+        button.addEventListener('click',e=>{if(e.detail===0&&!sources.has('button:'+side)){switchDown(side,'activation:'+side);switchUp(side,'activation:'+side);}});
+    }
+    window.addEventListener('blur',()=>{clearInputs();if(currentGame&&!dialogId)pauseGame();});
+    document.addEventListener('visibilitychange',()=>{clearInputs();if(document.hidden&&currentGame&&!dialogId)pauseGame();lastFrame=null;ensureAutoScanTimer();});
+    window.addEventListener('resize',resizeCanvas);
+}
+document.addEventListener('DOMContentLoaded',()=>{
+    loadSettings();loadLanguage();canvas=$('game-canvas');canvas.width=600;canvas.height=600;ctx=canvas.getContext('2d');
+    setupEventListeners();updateSettings();renderPage();resizeCanvas();requestAnimationFrame(runGameLoop);
+    if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+});

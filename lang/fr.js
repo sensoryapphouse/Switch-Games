@@ -5,15 +5,15 @@ registerLanguage('fr', {
     encourage1: 'BIEN ESSAYÉ!', encourage2: 'TOUT PRÈS!', encourage3: 'BIEN JOUÉ!', encourage4: 'CONTINUE!',
     games: {
         'space-invaders': 'ENVAHISSEURS', 'snake': 'SERPENT', 'breakout': 'CASSE-BRIQUES',
-        'bubble-shooter': 'TIRE-BULLES', 'tetris': 'TETRIS', 'racing': 'COURSE',
+        'bubble-shooter': 'TIRE-BULLES', 'tetris': 'TETRIS',
         'pong': 'PONG', 'flappy': 'OISEAU', 'dino': 'DINO',
         'helicopter': 'HÉLICO', 'rhythm': 'RYTHME', 'tank': 'CHARS',
-        'asteroids': 'ASTÉROÏDES', 'skiing': 'SKI', 'frogger': 'GRENOUILLE',
-        'tug': 'TIR À LA CORDE', 'balance': 'ÉQUILIBRE', 'simon': 'JACQUES A DIT',
+        'asteroids': 'ASTÉROÏDES', 'skiing': 'SKI',
+ 'balance': 'ÉQUILIBRE', 'simon': 'JACQUES A DIT',
         'whack': 'TAPE-TAUPE', 'airhockey': 'HOCKEY', 'lander': 'ALUNISSAGE',
         'fruit': 'COUPE-FRUITS', 'stack': 'TOUR', 'penalty': 'PENALTY',
         'pinball': 'FLIPPER', 'brickbuilder': 'BRIQUES', 'spacedodge': 'ESQUIVE',
-        'boxing': 'BOXE', 'wireloop': 'FIL DE FER', 'coinpusher': 'PIÈCES'
+ 'wireloop': 'FIL DE FER',
     },
     instructions: {
         'space-invaders': '🎯 Détruis les aliens!\n⬅️ Aller à gauche\n➡️ Aller à droite\n🔫 Tir auto',
@@ -21,7 +21,7 @@ registerLanguage('fr', {
         'breakout': '🎯 Casse les briques!\n⬅️ Aller à gauche\n➡️ Aller à droite\n🏓 Rebondis',
         'bubble-shooter': '🎯 Élimine les bulles!\n⬅️➡️ Tirer\n🔮 Relie 3+ couleurs',
         'tetris': '🎯 Complète des lignes!\n⬅️ Aller à gauche\n➡️ Tourner pièce\n📦 Remplis',
-        'racing': '🎯 Roule loin!\n⬅️ Tourner à gauche\n➡️ Tourner à droite\n🚗 Évite',
+
         'pong': '🎯 Marque 10 points!\n⬅️ Raquette haut\n➡️ Raquette bas\n🏓 Bats l\'IA',
         'flappy': '🎯 Vole entre tuyaux!\n⬅️➡️ Battre des ailes\n🐦 Pas de crash!',
         'dino': '🎯 Cours loin!\n⬅️ Sauter\n➡️ Se baisser\n🌵 Évite obstacles',
@@ -30,8 +30,8 @@ registerLanguage('fr', {
         'tank': '🎯 Détruis ennemis!\n⬅️ Tourner gauche\n➡️ Tourner droite\n🔫 Tir auto',
         'asteroids': '🎯 Détruis astéroïdes!\n⬅️ Tourner gauche\n➡️ Tourner droite\n☄️ Gros se divisent',
         'skiing': '🎯 Skie entre portes!\n⬅️ Tourner gauche\n➡️ Tourner droite\n🚩 Passe drapeaux',
-        'frogger': '🎯 Traverse en haut!\n⬅️ Sauter gauche\n➡️ Sauter droite\n🚗 Évite voitures',
-        'tug': '🎯 Tire l\'adversaire!\n⬅️➡️ Appuie les deux!\n💪 Tape vite',
+
+
         'balance': '🎯 Garde la balle!\n⬅️ Pencher gauche\n➡️ Pencher droite\n⚖️ Équilibre',
         'simon': '🎯 Répète la séquence!\n⬅️ Bouton gauche\n➡️ Bouton droite\n👀 Regarde et copie',
         'whack': '🎯 Frappe les taupes!\n⬅️ Trou gauche\n➡️ Trou droite\n⏱️ 30 secondes',
@@ -43,8 +43,8 @@ registerLanguage('fr', {
         'pinball': '🎯 Points avec bumpers!\n⬅️ Flipper gauche\n➡️ Flipper droite\n⚽ 3 balles',
         'brickbuilder': '🎯 Remplis des lignes!\n⬅️ Aller à gauche\n➡️ Aller à droite\n📦 Efface lignes',
         'spacedodge': '🎯 Survie!\n⬅️ Aller à gauche\n➡️ Aller à droite\n☄️ Esquive',
-        'boxing': '🎯 KO l\'adversaire!\n⬅️ Frapper/bloquer gauche\n➡️ Frapper/bloquer droite\n👊 Timing!',
+
         'wireloop': '🎯 Guide l\'anneau sur le fil!\n➡️ Avancer\n⬅️ Reculer\n🔗 Touche pas!',
-        'coinpusher': '🎯 Pousse les pièces!\n⬅️ Aller à gauche\n➡️ Aller à droite\n🪙 Appuie pour lâcher'
+
     }
 });

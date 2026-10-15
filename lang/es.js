@@ -5,15 +5,15 @@ registerLanguage('es', {
     encourage1: '¡BUEN INTENTO!', encourage2: '¡CASI!', encourage3: '¡BIEN JUGADO!', encourage4: '¡SIGUE ASÍ!',
     games: {
         'space-invaders': 'INVASORES', 'snake': 'SERPIENTE', 'breakout': 'ROMPE BLOQUES',
-        'bubble-shooter': 'BURBUJAS', 'tetris': 'TETRIS', 'racing': 'CARRERAS',
+        'bubble-shooter': 'BURBUJAS', 'tetris': 'TETRIS',
         'pong': 'PONG', 'flappy': 'PÁJARO', 'dino': 'DINOSAURIO',
         'helicopter': 'HELICÓPTERO', 'rhythm': 'RITMO', 'tank': 'TANQUES',
-        'asteroids': 'ASTEROIDES', 'skiing': 'ESQUÍ', 'frogger': 'RANA',
-        'tug': 'TIRA Y AFLOJA', 'balance': 'EQUILIBRIO', 'simon': 'SIMÓN DICE',
+        'asteroids': 'ASTEROIDES', 'skiing': 'ESQUÍ',
+ 'balance': 'EQUILIBRIO', 'simon': 'SIMÓN DICE',
         'whack': 'GOLPEA TOPOS', 'airhockey': 'HOCKEY AIRE', 'lander': 'ATERRIZAJE',
         'fruit': 'CORTA FRUTAS', 'stack': 'TORRE', 'penalty': 'PENALTI',
         'pinball': 'PINBALL', 'brickbuilder': 'CONSTRUCTOR', 'spacedodge': 'ESQUIVA',
-        'boxing': 'BOXEO', 'wireloop': 'ARO ALAMBRE', 'coinpusher': 'MONEDAS'
+ 'wireloop': 'ARO ALAMBRE',
     },
     instructions: {
         'space-invaders': '🎯 ¡Destruye aliens!\n⬅️ Mover izquierda\n➡️ Mover derecha\n🔫 Disparo auto',
@@ -21,7 +21,7 @@ registerLanguage('es', {
         'breakout': '🎯 ¡Rompe ladrillos!\n⬅️ Mover izquierda\n➡️ Mover derecha\n🏓 Rebota la bola',
         'bubble-shooter': '🎯 ¡Elimina burbujas!\n⬅️➡️ Disparar\n🔮 Une 3+ colores',
         'tetris': '🎯 ¡Completa líneas!\n⬅️ Mover izquierda\n➡️ Rotar pieza\n📦 Llena filas',
-        'racing': '🎯 ¡Conduce lejos!\n⬅️ Girar izquierda\n➡️ Girar derecha\n🚗 Evita coches',
+
         'pong': '🎯 ¡Marca 10 puntos!\n⬅️ Paleta arriba\n➡️ Paleta abajo\n🏓 Vence a la IA',
         'flappy': '🎯 ¡Vuela entre tubos!\n⬅️➡️ Aletear\n🐦 ¡No choques!',
         'dino': '🎯 ¡Corre lejos!\n⬅️ Saltar\n➡️ Agacharse\n🌵 Evita obstáculos',
@@ -30,8 +30,8 @@ registerLanguage('es', {
         'tank': '🎯 ¡Destruye enemigos!\n⬅️ Rotar izquierda\n➡️ Rotar derecha\n🔫 Disparo auto',
         'asteroids': '🎯 ¡Destruye asteroides!\n⬅️ Rotar izquierda\n➡️ Rotar derecha\n☄️ Grandes se dividen',
         'skiing': '🎯 ¡Esquía entre puertas!\n⬅️ Girar izquierda\n➡️ Girar derecha\n🚩 Pasa banderas',
-        'frogger': '🎯 ¡Cruza arriba!\n⬅️ Saltar izquierda\n➡️ Saltar derecha\n🚗 Evita coches',
-        'tug': '🎯 ¡Tira del oponente!\n⬅️➡️ ¡Pulsa ambos!\n💪 Pulsa rápido',
+
+
         'balance': '🎯 ¡Mantén la bola!\n⬅️ Inclinar izquierda\n➡️ Inclinar derecha\n⚖️ Equilibra',
         'simon': '🎯 ¡Repite secuencia!\n⬅️ Botón izquierdo\n➡️ Botón derecho\n👀 Mira y copia',
         'whack': '🎯 ¡Golpea topos!\n⬅️ Agujero izquierdo\n➡️ Agujero derecho\n⏱️ 30 segundos',
@@ -43,8 +43,8 @@ registerLanguage('es', {
         'pinball': '🎯 ¡Puntúa con bumpers!\n⬅️ Paleta izquierda\n➡️ Paleta derecha\n⚽ 3 bolas',
         'brickbuilder': '🎯 ¡Completa filas!\n⬅️ Mover izquierda\n➡️ Mover derecha\n📦 Limpia líneas',
         'spacedodge': '🎯 ¡Sobrevive!\n⬅️ Mover izquierda\n➡️ Mover derecha\n☄️ Esquiva',
-        'boxing': '🎯 ¡Noquea al rival!\n⬅️ Golpear/bloquear izq\n➡️ Golpear/bloquear der\n👊 ¡Timing!',
+
         'wireloop': '🎯 ¡Guía el aro por el alambre!\n➡️ Avanzar\n⬅️ Retroceder\n🔗 ¡No toques!',
-        'coinpusher': '🎯 ¡Empuja monedas!\n⬅️ Mover izquierda\n➡️ Mover derecha\n🪙 Toca para soltar'
+
     }
 });

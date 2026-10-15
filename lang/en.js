@@ -5,15 +5,15 @@ registerLanguage('en', {
     encourage1: 'GOOD TRY!', encourage2: 'SO CLOSE!', encourage3: 'WELL PLAYED!', encourage4: 'KEEP GOING!',
     games: {
         'space-invaders': 'SPACE INVADERS', 'snake': 'SNAKEY', 'breakout': 'BREAKOUT',
-        'bubble-shooter': 'BUBBLE SHOOT', 'tetris': 'TETRIS', 'racing': 'RACING',
+        'bubble-shooter': 'BUBBLE SHOOT', 'tetris': 'TETRIS',
         'pong': 'PONG', 'flappy': 'FLAPPY BIRD', 'dino': 'DINO RUNNER',
         'helicopter': 'HELICOPTER', 'rhythm': 'RHYTHM', 'tank': 'TANK BATTLE',
-        'asteroids': 'ASTEROIDS', 'skiing': 'SKIING', 'frogger': 'FROGGER',
-        'tug': 'TUG OF WAR', 'balance': 'BALANCE', 'simon': 'SIMON SAYS',
+        'asteroids': 'ASTEROIDS', 'skiing': 'SKIING',
+ 'balance': 'BALANCE', 'simon': 'SIMON SAYS',
         'whack': 'WHACK-A-MOLE', 'airhockey': 'AIR HOCKEY', 'lander': 'LUNAR LANDER',
         'fruit': 'FRUIT NINJA', 'stack': 'STACK TOWER', 'penalty': 'PENALTY KICK',
         'pinball': 'PINBALL', 'brickbuilder': 'BRICK BUILDER', 'spacedodge': 'SPACE DODGE',
-        'boxing': 'BOXING', 'wireloop': 'WIRE LOOP', 'coinpusher': 'COIN PUSHER'
+ 'wireloop': 'WIRE LOOP',
     },
     instructions: {
         'space-invaders': '🎯 Destroy all aliens!\n⬅️ Move left\n➡️ Move right\n🔫 Auto-fire',
@@ -21,7 +21,7 @@ registerLanguage('en', {
         'breakout': '🎯 Break all bricks!\n⬅️ Move left\n➡️ Move right\n🏓 Bounce the ball',
         'bubble-shooter': '🎯 Clear all bubbles!\n⬅️➡️ Fire bubble\n🔮 Match 3+ colors',
         'tetris': '🎯 Complete lines!\n⬅️ Move left\n➡️ Rotate piece\n📦 Fill rows',
-        'racing': '🎯 Drive far!\n⬅️ Steer left\n➡️ Steer right\n🚗 Avoid cars',
+
         'pong': '🎯 Score 10 points!\n⬅️ Paddle up\n➡️ Paddle down\n🏓 Beat the AI',
         'flappy': '🎯 Fly through pipes!\n⬅️➡️ Flap wings\n🐦 Don\'t crash!',
         'dino': '🎯 Run far!\n⬅️ Jump\n➡️ Duck\n🌵 Avoid obstacles',
@@ -30,8 +30,8 @@ registerLanguage('en', {
         'tank': '🎯 Destroy enemies!\n⬅️ Rotate left\n➡️ Rotate right\n🔫 Auto-fire',
         'asteroids': '🎯 Destroy asteroids!\n⬅️ Rotate left\n➡️ Rotate right\n☄️ Big ones split',
         'skiing': '🎯 Ski through gates!\n⬅️ Steer left\n➡️ Steer right\n🚩 Pass flags',
-        'frogger': '🎯 Cross to top!\n⬅️ Hop left\n➡️ Hop right\n🚗 Avoid cars',
-        'tug': '🎯 Pull opponent!\n⬅️➡️ Mash both!\n💪 Tap fast to win',
+
+
         'balance': '🎯 Keep ball on platform!\n⬅️ Tilt left\n➡️ Tilt right\n⚖️ Stay balanced',
         'simon': '🎯 Repeat sequence!\n⬅️ Left button\n➡️ Right button\n👀 Watch & copy',
         'whack': '🎯 Whack all moles!\n⬅️ Left hole\n➡️ Right hole\n⏱️ 30 seconds',
@@ -43,8 +43,8 @@ registerLanguage('en', {
         'pinball': '🎯 Score with bumpers!\n⬅️ Left flipper\n➡️ Right flipper\n⚽ 3 balls',
         'brickbuilder': '🎯 Fill complete rows!\n⬅️ Move left\n➡️ Move right\n📦 Clear lines',
         'spacedodge': '🎯 Survive!\n⬅️ Move left\n➡️ Move right\n☄️ Dodge asteroids',
-        'boxing': '🎯 Knock out opponent!\n⬅️ Punch/block left\n➡️ Punch/block right\n👊 Time it!',
+
         'wireloop': '🎯 Guide ring along wire!\n➡️ Move forward\n⬅️ Move back\n🔗 Don\'t touch!',
-        'coinpusher': '🎯 Push coins off edge!\n⬅️ Move left\n➡️ Move right\n🪙 Tap to drop'
+
     }
 });

@@ -1,0 +1,56 @@
+SWITCH GAMES — DEVELOPMENT AND ACCEPTANCE CHECKS
+
+Run locally: npm start (http://localhost:8080)
+Run regression tests: npm test (Node's built-in runner; no dependencies)
+After source edits: npm run build (npm start also builds automatically).
+The committed app.js bundle lets any static server run the app without a build.
+Tests refuse to pass if the bundle is out of date.
+
+Controls
+- Switch 1: ArrowLeft, 1 or 3. Switch 2: ArrowRight, 2 or 4.
+- Native keyboard navigation: Tab / Shift+Tab, Enter / Space on buttons.
+- One-switch menus: timed scanning, either switch selects the highlight.
+- Two-switch menus: switch 2 advances, switch 1 selects.
+- Holding either switch for 2.5 seconds opens Pause. Change/disable this
+  duration in Settings when a game needs longer continuous holds.
+- P pauses/resumes. Escape or Home returns to the game-selection page.
+- With scanning off, holding a switch for 2.5 seconds restores automatic
+  scanning and opens Settings, so a switch user is not permanently stranded.
+
+Accessibility
+- First launch defaults to one-switch/automatic scanning. The global profile
+  selects the default for all games; instructions allow a per-game override.
+- Settings are ordinary labelled buttons, including toggle states. Every
+  dialog is included in scanning, traps keyboard focus, and makes its
+  background inert. Tab navigation remains available with scanning on.
+- Spoken selection names are optional and use device voices; availability
+  and pronunciation depend on the operating system and installed voices.
+- Simon and Whack expose changing cues through a live region. Other visual
+  games expose instructions and periodic score/level status. These descriptions
+  do NOT make every fast-moving canvas game independently playable without
+  sight; nonvisual gameplay needs user testing and game-specific adaptations.
+
+Regression coverage
+- Both switch modes and 25 games across three logical canvas sizes.
+- Tetris positioning; Brick Builder integer grid placement; reachable landings;
+  one-miss-per-fruit; one-switch Simon, Whack, Fruit and Pinball.
+- Pinball geometry; Air Hockey walls; Dino collisions; Wire Loop progress.
+- 60/120Hz timing; input-source merging; gamepad selection edges; hold-to-pause;
+  settings pause; blocked/corrupt storage; per-game practice recovery.
+- 41 complete locale dictionaries, native control vocabulary and RTL metadata.
+
+Manual acceptance on real hardware (before release)
+- Test each adapter's actual keyboard mappings, short taps and long holds.
+- Test switch-only menu -> instructions -> game -> Pause -> settings/menu.
+- Test iPad/iPhone Safari and Android Chrome, rotation, browser zoom, touch
+  cancellation, disconnected gamepads, VoiceOver/NVDA and reduced-motion mode.
+- Confirm translated phrases with native speakers and intended child users.
+- Confirm comfortable pacing, target sizes and audio levels with users.
+
+Offline / updates
+- The app shell and all languages are cached after a successful first online
+  load on HTTPS or localhost. Subsequent launches work offline.
+- No fonts or other resources are fetched from third-party servers.
+- Builds derive the offline cache version from the app sources. New workers wait for old game tabs
+  to close before activation, avoiding a mixed-version game in progress.
+- Clearing browser site data removes preferences, records and offline files.

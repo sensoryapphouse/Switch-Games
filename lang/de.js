@@ -5,15 +5,15 @@ registerLanguage('de', {
     encourage1: 'GUT VERSUCHT!', encourage2: 'FAST!', encourage3: 'GUT GESPIELT!', encourage4: 'WEITER SO!',
     games: {
         'space-invaders': 'INVASOREN', 'snake': 'SCHLANGE', 'breakout': 'AUSBRUCH',
-        'bubble-shooter': 'BLASEN', 'tetris': 'TETRIS', 'racing': 'RENNEN',
+        'bubble-shooter': 'BLASEN', 'tetris': 'TETRIS',
         'pong': 'PONG', 'flappy': 'VOGEL', 'dino': 'DINO',
         'helicopter': 'HELIKOPTER', 'rhythm': 'RHYTHMUS', 'tank': 'PANZER',
-        'asteroids': 'ASTEROIDEN', 'skiing': 'SKI', 'frogger': 'FROSCH',
-        'tug': 'TAUZIEHEN', 'balance': 'BALANCE', 'simon': 'SIMON SAGT',
+        'asteroids': 'ASTEROIDEN', 'skiing': 'SKI',
+ 'balance': 'BALANCE', 'simon': 'SIMON SAGT',
         'whack': 'MAULWURF', 'airhockey': 'HOCKEY', 'lander': 'MONDLANDUNG',
         'fruit': 'FRÜCHTE', 'stack': 'TURM', 'penalty': 'ELFMETER',
         'pinball': 'FLIPPER', 'brickbuilder': 'STEINE', 'spacedodge': 'AUSWEICHEN',
-        'boxing': 'BOXEN', 'wireloop': 'DRAHT', 'coinpusher': 'MÜNZEN'
+ 'wireloop': 'DRAHT',
     },
     instructions: {
         'space-invaders': '🎯 Zerstöre Aliens!\n⬅️ Nach links\n➡️ Nach rechts\n🔫 Auto-Feuer',
@@ -21,7 +21,7 @@ registerLanguage('de', {
         'breakout': '🎯 Zerbrich Steine!\n⬅️ Nach links\n➡️ Nach rechts\n🏓 Ball abprallen',
         'bubble-shooter': '🎯 Räume Blasen!\n⬅️➡️ Schießen\n🔮 Verbinde 3+ Farben',
         'tetris': '🎯 Linien füllen!\n⬅️ Nach links\n➡️ Teil drehen\n📦 Reihen füllen',
-        'racing': '🎯 Fahre weit!\n⬅️ Links lenken\n➡️ Rechts lenken\n🚗 Autos meiden',
+
         'pong': '🎯 10 Punkte!\n⬅️ Schläger hoch\n➡️ Schläger runter\n🏓 Schlage KI',
         'flappy': '🎯 Durch Rohre!\n⬅️➡️ Flügel schlagen\n🐦 Nicht crashen!',
         'dino': '🎯 Laufe weit!\n⬅️ Springen\n➡️ Ducken\n🌵 Hindernisse meiden',
@@ -30,8 +30,8 @@ registerLanguage('de', {
         'tank': '🎯 Feinde zerstören!\n⬅️ Links drehen\n➡️ Rechts drehen\n🔫 Auto-Feuer',
         'asteroids': '🎯 Asteroiden zerstören!\n⬅️ Links drehen\n➡️ Rechts drehen\n☄️ Große teilen',
         'skiing': '🎯 Durch Tore!\n⬅️ Links lenken\n➡️ Rechts lenken\n🚩 Flaggen passieren',
-        'frogger': '🎯 Nach oben!\n⬅️ Links hüpfen\n➡️ Rechts hüpfen\n🚗 Autos meiden',
-        'tug': '🎯 Gegner ziehen!\n⬅️➡️ Beide drücken!\n💪 Schnell tippen',
+
+
         'balance': '🎯 Ball halten!\n⬅️ Links kippen\n➡️ Rechts kippen\n⚖️ Balance halten',
         'simon': '🎯 Sequenz wiederholen!\n⬅️ Linke Taste\n➡️ Rechte Taste\n👀 Schauen & kopieren',
         'whack': '🎯 Maulwürfe treffen!\n⬅️ Linkes Loch\n➡️ Rechtes Loch\n⏱️ 30 Sekunden',
@@ -43,8 +43,8 @@ registerLanguage('de', {
         'pinball': '🎯 Bumper-Punkte!\n⬅️ Linker Flipper\n➡️ Rechter Flipper\n⚽ 3 Bälle',
         'brickbuilder': '🎯 Reihen füllen!\n⬅️ Nach links\n➡️ Nach rechts\n📦 Linien räumen',
         'spacedodge': '🎯 Überleben!\n⬅️ Nach links\n➡️ Nach rechts\n☄️ Ausweichen',
-        'boxing': '🎯 KO schlagen!\n⬅️ Links schlagen/blocken\n➡️ Rechts schlagen/blocken\n👊 Timing!',
+
         'wireloop': '🎯 Ring am Draht führen!\n➡️ Vorwärts\n⬅️ Zurück\n🔗 Nicht berühren!',
-        'coinpusher': '🎯 Münzen schieben!\n⬅️ Nach links\n➡️ Nach rechts\n🪙 Tippen zum Werfen'
+
     }
 });

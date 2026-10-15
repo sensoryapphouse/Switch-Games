@@ -23,7 +23,7 @@ class Balance {
         this.ball.vx += Math.sin(this.platform.angle) * 0.12 * sm * (1 + this.level * 0.08);
         this.ball.vx *= 0.99;
         this.ball.x += this.ball.vx * sm;
-        const platW = 300 - this.level * 10;
+        const platW = Math.max(140, 300 - this.level * 10);
         const minX = canvas.width / 2 - platW / 2 + 15;
         const maxX = canvas.width / 2 + platW / 2 - 15;
         if (this.ball.x < minX || this.ball.x > maxX) this.gameOver = true;
@@ -37,15 +37,15 @@ class Balance {
     }
     draw() {
         ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        const platW = 300 - this.level * 10, platH = 15, platY = canvas.height / 2 + 50;
+        const platW = Math.max(140, 300 - this.level * 10), platH = 15, platY = canvas.height / 2 + 50;
         ctx.save(); ctx.translate(canvas.width / 2, platY); ctx.rotate(this.platform.angle);
         ctx.fillStyle = '#8B4513'; ctx.fillRect(-platW / 2, -platH / 2, platW, platH);
         ctx.restore();
         ctx.fillStyle = '#654321'; ctx.fillRect(canvas.width / 2 - 10, platY, 20, canvas.height / 2 - 50);
         const ballY = platY - platH / 2 - 20 + Math.sin(this.platform.angle) * (this.ball.x - canvas.width / 2);
         ctx.fillStyle = '#ff0066'; ctx.beginPath(); ctx.arc(this.ball.x, ballY, 20, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#fff'; ctx.font = '14px "Press Start 2P"'; ctx.textAlign = 'center';
-        ctx.fillText(`TIME: ${Math.floor(this.timer / 1000)}s`, canvas.width / 2, 40);
+        ctx.fillStyle = '#fff'; ctx.font = '16px system-ui'; ctx.textAlign = 'center';
+        ctx.fillText(`${ui("time")}: ${Math.floor(this.timer / 1000)}s`, canvas.width / 2, 40);
     }
 }
 
@@ -56,7 +56,7 @@ class Simon {
         this.score = 0; this.level = 1; this.gameOver = false;
         this.sequence = []; this.playerSeq = []; this.showingSeq = false;
         this.showIndex = 0; this.showTimer = 0; this.inputEnabled = false;
-        this.flash = null; this.flashTimer = 0;
+        this.flash = null; this.flashTimer = 0; this.answerScan = 0; this.answerTimer = 0; this.nextRoundTimer = 0;
         this.addToSequence();
     }
     addToSequence() {
@@ -64,25 +64,39 @@ class Simon {
         this.playerSeq = []; this.showingSeq = true; this.showIndex = 0; this.showTimer = 0; this.inputEnabled = false;
     }
     update(sm) {
+        if (this.nextRoundTimer > 0) {
+            this.nextRoundTimer -= 16 * sm;
+            if (this.nextRoundTimer <= 0) this.addToSequence();
+            return;
+        }
         if (this.flash !== null) {
             this.flashTimer += 16 * sm;
-            if (this.flashTimer > 200) { this.flash = null; this.flashTimer = 0; }
+            if (this.flashTimer > 650) { this.flash = null; this.flashTimer = 0; }
         }
         if (this.showingSeq) {
             this.showTimer += 16 * sm;
-            if (this.showTimer > 600) {
+            if (this.showTimer > 1200) {
                 this.showTimer = 0;
                 if (this.showIndex < this.sequence.length) {
                     this.flash = this.sequence[this.showIndex];
                     this.flashTimer = 0;
                     if (this.flash === 0) playSound('low'); else playSound('high');
                     this.showIndex++;
-                } else { this.showingSeq = false; this.inputEnabled = true; }
+                } else { this.showingSeq = false; this.inputEnabled = true; this.answerScan = 0; this.answerTimer = 0; }
             }
         }
         if (this.inputEnabled) {
+            if (this.switchMode === 1) {
+                this.answerTimer += 16 * sm;
+                const interval = typeof settings === 'undefined' ? 1500 : settings.scanSpeed;
+                if (this.answerTimer >= interval) { this.answerTimer = 0; this.answerScan = 1 - this.answerScan; }
+                if (input.leftPressed || input.rightPressed) {
+                    this.playerSeq.push(this.answerScan); this.flash = this.answerScan; this.flashTimer = 0; this.checkInput();
+                }
+                return;
+            }
             if (input.leftPressed) { this.playerSeq.push(0); this.flash = 0; this.flashTimer = 0; playSound('low'); this.checkInput(); }
-            if (input.rightPressed) { this.playerSeq.push(1); this.flash = 1; this.flashTimer = 0; playSound('high'); this.checkInput(); }
+            if (input.rightPressed && this.inputEnabled && !this.gameOver) { this.playerSeq.push(1); this.flash = 1; this.flashTimer = 0; playSound('high'); this.checkInput(); }
         }
     }
     checkInput() {
@@ -91,7 +105,7 @@ class Simon {
         if (this.playerSeq.length === this.sequence.length) {
             this.score += 10 * this.level; this.level = this.sequence.length;
             playSound('score');
-            setTimeout(() => this.addToSequence(), 500);
+            this.nextRoundTimer = 800;
             this.inputEnabled = false;
         }
     }
@@ -103,27 +117,27 @@ class Simon {
         ctx.beginPath(); ctx.roundRect(lx, by, bw, bh, 20); ctx.fill();
         ctx.fillStyle = this.flash === 1 ? '#66ffff' : '#00ffff';
         ctx.beginPath(); ctx.roundRect(rx, by, bw, bh, 20); ctx.fill();
-        ctx.fillStyle = '#fff'; ctx.font = '14px "Press Start 2P"'; ctx.textAlign = 'center';
+        ctx.fillStyle = '#fff'; ctx.font = '16px system-ui'; ctx.textAlign = 'center';
         if (this.showingSeq) {
-            ctx.fillText('WATCH...', canvas.width / 2, 60);
+            ctx.fillText(ui('watch'), canvas.width / 2, 60);
             // Highlight which button is being shown
             if (this.flash !== null) {
                 const arrowX = this.flash === 0 ? lx + bw / 2 : rx + bw / 2;
                 ctx.font = '28px Arial'; ctx.fillText('▼', arrowX, by - 10);
             }
         } else if (this.inputEnabled) {
-            ctx.fillText('YOUR TURN!', canvas.width / 2, 60);
+            ctx.fillText(ui('yourTurn'), canvas.width / 2, 60);
             // Show which button to press next
             if (this.playerSeq.length < this.sequence.length) {
-                const next = this.sequence[this.playerSeq.length];
+                const next = this.switchMode === 1 ? this.answerScan : this.sequence[this.playerSeq.length];
                 const arrowX = next === 0 ? lx + bw / 2 : rx + bw / 2;
-                const arrowLabel = next === 0 ? 'LEFT' : 'RIGHT';
+                const arrowLabel = next === 0 ? ui('left') : ui('right');
                 ctx.fillStyle = '#ffff00'; ctx.font = '28px Arial'; ctx.fillText('▼', arrowX, by - 10);
-                ctx.font = '10px "Press Start 2P"'; ctx.fillText(`PRESS ${arrowLabel}`, arrowX, by - 35);
+                ctx.font = '16px system-ui'; ctx.fillText(`${ui("action")} ${arrowLabel}`, arrowX, by - 35);
             }
         }
-        ctx.fillStyle = '#fff'; ctx.font = '14px "Press Start 2P"';
-        ctx.fillText(`ROUND: ${this.sequence.length}`, canvas.width / 2, canvas.height - 40);
+        ctx.fillStyle = '#fff'; ctx.font = '16px system-ui';
+        ctx.fillText(`${ui("round")}: ${this.sequence.length}`, canvas.width / 2, canvas.height - 40);
     }
 }
 
@@ -147,6 +161,11 @@ class Whack {
         this.moles.forEach(m => {
             if (m.up) { m.timer -= 16 * sm; if (m.timer <= 0) { m.up = false; this.misses++; } }
         });
+        if (this.switchMode === 1 && (input.leftPressed || input.rightPressed)) {
+            const mole = this.moles.find(m => m.up);
+            if (mole) { mole.up = false; this.score += 10 * this.level; if (this.score % 100 === 0) this.level++; playSound('hit'); }
+            return;
+        }
         if (input.leftPressed && this.moles[0].up) { this.moles[0].up = false; this.score += 10 * this.level; playSound('hit');
             if (this.score % 100 === 0) this.level++; }
         else if (input.leftPressed) { playSound('low'); }
@@ -164,8 +183,8 @@ class Whack {
                 ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x + holeW / 2 - 10, hy - 10, 5, 0, Math.PI * 2); ctx.arc(x + holeW / 2 + 10, hy - 10, 5, 0, Math.PI * 2); ctx.fill();
                 ctx.fillStyle = '#ff6666'; ctx.beginPath(); ctx.ellipse(x + holeW / 2, hy + 10, 8, 5, 0, 0, Math.PI * 2); ctx.fill(); }
         });
-        ctx.fillStyle = '#fff'; ctx.font = '14px "Press Start 2P"'; ctx.textAlign = 'center';
-        ctx.fillText(`TIME: ${Math.ceil(this.timeLeft / 1000)}`, canvas.width / 2, 40);
+        ctx.fillStyle = '#fff'; ctx.font = '16px system-ui'; ctx.textAlign = 'center';
+        ctx.fillText(`${ui("time")}: ${Math.ceil(this.timeLeft / 1000)}`, canvas.width / 2, 40);
     }
 }
 
@@ -198,32 +217,35 @@ class AirHockey {
         // Puck movement
         this.puck.x += this.puck.vx * sm; this.puck.y += this.puck.vy * sm;
         // Top/bottom walls
-        if (this.puck.y <= this.puck.r || this.puck.y >= canvas.height - this.puck.r) { this.puck.vy *= -1; playSound('hit'); }
+        if (this.puck.y <= this.puck.r) { this.puck.y=this.puck.r;this.puck.vy=Math.abs(this.puck.vy);playSound('hit'); }
+        if (this.puck.y >= canvas.height-this.puck.r) { this.puck.y=canvas.height-this.puck.r;this.puck.vy=-Math.abs(this.puck.vy);playSound('hit'); }
         const goalTop = canvas.height / 2 - this.goalH / 2;
         const goalBot = canvas.height / 2 + this.goalH / 2;
         // Left wall (player side — concede)
         if (this.puck.x <= this.puck.r) {
             if (this.puck.y > goalTop && this.puck.y < goalBot) {
                 this.aiScore++; playSound('low'); if (this.aiScore >= 5) this.gameOver = true;
-            } else { this.puck.vx = Math.abs(this.puck.vx); playSound('hit'); }
-            this.resetPuck(1);
+                this.resetPuck(1);
+            } else { this.puck.x = this.puck.r; this.puck.vx = Math.abs(this.puck.vx); playSound('hit'); }
         }
         // Right wall (AI side — score)
         if (this.puck.x >= canvas.width - this.puck.r) {
             if (this.puck.y > goalTop && this.puck.y < goalBot) {
                 this.score += 10; playSound('score'); if (this.score % 50 === 0) { this.level++; this.ai.speed += 0.3; }
-            } else { this.puck.vx = -Math.abs(this.puck.vx); playSound('hit'); }
-            this.resetPuck(-1);
+                this.resetPuck(-1);
+            } else { this.puck.x = canvas.width - this.puck.r; this.puck.vx = -Math.abs(this.puck.vx); playSound('hit'); }
         }
         // Player paddle collision
-        if (Math.hypot(this.puck.x - this.player.x, this.puck.y - this.player.y) < this.puck.r + this.player.r) {
-            this.puck.vx = Math.abs(this.puck.vx) + 1;
+        if (this.puck.vx < 0 && Math.hypot(this.puck.x - this.player.x, this.puck.y - this.player.y) < this.puck.r + this.player.r) {
+            this.puck.x = this.player.x + this.player.r + this.puck.r;
+            this.puck.vx = Math.min(5, Math.abs(this.puck.vx) + 0.2);
             this.puck.vy = (this.puck.y - this.player.y) * 0.18;
             playSound('hit');
         }
         // AI paddle collision
-        if (Math.hypot(this.puck.x - this.ai.x, this.puck.y - this.ai.y) < this.puck.r + this.ai.r) {
-            this.puck.vx = -(Math.abs(this.puck.vx) + 1);
+        if (this.puck.vx > 0 && Math.hypot(this.puck.x - this.ai.x, this.puck.y - this.ai.y) < this.puck.r + this.ai.r) {
+            this.puck.x = this.ai.x - this.ai.r - this.puck.r;
+            this.puck.vx = -Math.min(5, Math.abs(this.puck.vx) + 0.2);
             this.puck.vy = (this.puck.y - this.ai.y) * 0.18;
             playSound('hit');
         }
@@ -252,7 +274,7 @@ class AirHockey {
         // Puck
         ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(this.puck.x, this.puck.y, this.puck.r, 0, Math.PI * 2); ctx.fill();
         // Scores
-        ctx.font = '16px "Press Start 2P"'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+        ctx.font = '16px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
         ctx.fillText(`${Math.floor(this.score / 10)}`, canvas.width / 4, 40);
         ctx.fillText(`${this.aiScore}`, canvas.width * 3 / 4, 40);
     }
@@ -272,10 +294,12 @@ class Lander {
         if ((input.left || input.right) && this.lander.fuel > 0) {
             this.lander.vy -= this.thrust * sm;
             this.lander.fuel -= 0.25 * sm;
-            playSound('move');
+            if(input.leftPressed || input.rightPressed) playSound('move');
         }
         this.lander.vy += this.gravity * sm * (1 + this.level * 0.08);
+        this.lander.vy = Math.max(-3, Math.min(3, this.lander.vy));
         this.lander.y += this.lander.vy * sm;
+        if (this.lander.y < 25) { this.lander.y = 25; this.lander.vy = 0; }
         // Slight horizontal drift only from vx (starts at 0, no lateral control)
         this.lander.x += this.lander.vx * sm;
         if (this.lander.x < 20) { this.lander.x = 20; this.lander.vx = 0; }
@@ -285,7 +309,7 @@ class Lander {
             if (this.lander.x > this.padX && this.lander.x < this.padX + this.padW && Math.abs(this.lander.vy) < 2.5) {
                 this.score += 100 * this.level; playSound('score'); this.level++;
                 const newPadW = Math.max(80, 140 - this.level * 6);
-                this.padX = Math.random() * (canvas.width - newPadW - 40) + 20;
+                this.padX = canvas.width / 2 - newPadW / 2;
                 this.padW = newPadW;
                 this.lander = { x: canvas.width / 2, y: 50, vx: 0, vy: 0, fuel: Math.min(100, this.lander.fuel + 35) };
             } else this.gameOver = true;
@@ -308,7 +332,7 @@ class Lander {
         }
         ctx.fillStyle = '#0f0'; ctx.fillRect(10, 10, this.lander.fuel, 15);
         ctx.strokeStyle = '#fff'; ctx.strokeRect(10, 10, 100, 15);
-        ctx.fillStyle = '#fff'; ctx.font = '10px "Press Start 2P"'; ctx.fillText(`VY:${this.lander.vy.toFixed(1)}`, 10, 45);
+        ctx.fillStyle = '#fff'; ctx.font = '16px system-ui'; ctx.textAlign='left';ctx.fillText(`↕ ${this.lander.vy.toFixed(1)}`, 10, 45);
     }
 }
 
@@ -332,13 +356,17 @@ class Fruit {
         }
         this.fruits = this.fruits.filter(f => {
             f.vy += 0.3 * sm; f.y += f.vy * sm; f.x += f.vx * sm;
-            if (f.y > canvas.height + 50 && !f.sliced) { this.misses++; if (this.misses >= 5) this.gameOver = true; }
+            if (f.y > canvas.height + 50 && !f.sliced) { this.misses++; if (this.misses >= 5) this.gameOver = true; return false; }
             return f.y < canvas.height + 100;
         });
-        if (input.leftPressed) { this.slashL.push({ t: 10 });
+        if (this.switchMode === 1 && (input.leftPressed || input.rightPressed)) {
+            this.slashL.push({t:10}); this.slashR.push({t:10});
+            this.fruits.forEach(f => { if (!f.sliced && f.y < canvas.height - 50) { f.sliced = true; this.score += 10 * this.level; playSound('hit'); } });
+            if (this.score >= this.level * 100) this.level++;
+        } else if (input.leftPressed) { this.slashL.push({ t: 10 });
             this.fruits.forEach(f => { if (!f.sliced && f.side === 0 && f.y < canvas.height - 50) { f.sliced = true; this.score += 10 * this.level; playSound('hit');
                 if (this.score % 100 === 0) this.level++; } }); }
-        if (input.rightPressed) { this.slashR.push({ t: 10 });
+        if (this.switchMode !== 1 && input.rightPressed) { this.slashR.push({ t: 10 });
             this.fruits.forEach(f => { if (!f.sliced && f.side === 1 && f.y < canvas.height - 50) { f.sliced = true; this.score += 10 * this.level; playSound('hit');
                 if (this.score % 100 === 0) this.level++; } }); }
         this.slashL = this.slashL.filter(s => { s.t -= sm; return s.t > 0; });
@@ -413,7 +441,7 @@ class Penalty {
     update(sm) {
         if (this.preparing) { this.prepTimer -= 16 * sm; if (this.prepTimer <= 0) { this.preparing = false; this.prepTimer = 1000; } return; }
         if (!this.shooting) {
-            this.keeper.targetX = canvas.width / 2 + Math.sin(Date.now() / 700) * (this.goalW / 2 - 30);
+            this.keeper.targetX = canvas.width / 2 + Math.sin(gameNow() / 700) * (this.goalW / 2 - 30);
             this.keeper.x += (this.keeper.targetX - this.keeper.x) * 0.06 * sm;
             if (this.switchMode === 1) {
                 // 1-switch: press to shoot, alternates left/right
@@ -453,8 +481,8 @@ class Penalty {
         if (this.ball) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(this.ball.x, this.ball.y, 15, 0, Math.PI * 2); ctx.fill();
             ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.stroke(); }
         else if (!this.shooting) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(canvas.width / 2, canvas.height - 100, 15, 0, Math.PI * 2); ctx.fill(); }
-        ctx.fillStyle = '#fff'; ctx.font = '12px "Press Start 2P"'; ctx.textAlign = 'center';
-        ctx.fillText(`SAVES LEFT: ${3 - this.misses}`, canvas.width / 2, 40);
-        if (this.preparing) ctx.fillText('GET READY...', canvas.width / 2, canvas.height / 2);
+        ctx.fillStyle = '#fff'; ctx.font = '16px system-ui'; ctx.textAlign = 'center';
+        ctx.fillText(`♥ ${3 - this.misses}`, canvas.width / 2, 40);
+        if (this.preparing) ctx.fillText(ui('ready'), canvas.width / 2, canvas.height / 2);
     }
 }

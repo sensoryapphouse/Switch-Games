@@ -27,8 +27,8 @@ class SpaceInvaders {
             if (input.left && this.player.x > 25) this.player.x -= this.player.speed * sm;
             if (input.right && this.player.x < canvas.width - 25) this.player.x += this.player.speed * sm;
         }
-        if (Date.now() - this.lastShot > 500 / sm) {
-            this.bullets.push({ x: this.player.x, y: this.player.y - 10 }); playSound('shoot'); this.lastShot = Date.now();
+        if (gameNow() - this.lastShot > 500 / sm) {
+            this.bullets.push({ x: this.player.x, y: this.player.y - 10 }); playSound('shoot'); this.lastShot = gameNow();
         }
         this.bullets = this.bullets.filter(b => { b.y -= 8 * sm; return b.y > 0; });
         this.enemyBullets = this.enemyBullets.filter(b => { b.y += 4 * sm; return b.y < canvas.height; });
@@ -39,11 +39,11 @@ class SpaceInvaders {
         let edge = false;
         this.enemies.forEach(e => { e.x += this.enemyDir * this.enemySpeed * sm; if (e.x <= 0 || e.x + e.w >= canvas.width) edge = true; });
         if (edge) { this.enemyDir *= -1; this.enemies.forEach(e => { e.y += 20; if (e.y + e.h >= this.player.y) this.gameOver = true; }); }
-        this.bullets.forEach((b, bi) => this.enemies.forEach((e, ei) => {
-            if (b.x > e.x && b.x < e.x + e.w && b.y > e.y && b.y < e.y + e.h) {
-                this.bullets.splice(bi, 1); this.enemies.splice(ei, 1); this.score += 10 * this.level; playSound('hit');
-            }
-        }));
+        for (let bi=this.bullets.length-1;bi>=0;bi--) {
+            const b=this.bullets[bi];
+            const ei=this.enemies.findIndex(e=>b.x>e.x&&b.x<e.x+e.w&&b.y>e.y&&b.y<e.y+e.h);
+            if(ei>=0){this.bullets.splice(bi,1);this.enemies.splice(ei,1);this.score+=10*this.level;playSound('hit');}
+        }
         this.enemyBullets.forEach(b => { if (Math.abs(b.x - this.player.x) < 25 && Math.abs(b.y - this.player.y) < 15) this.gameOver = true; });
         if (!this.enemies.length) { this.level++; playSound('score'); this.createEnemies(); }
     }
@@ -201,11 +201,17 @@ class BubbleShooter {
     draw() {
         ctx.fillStyle = '#0a0a1a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.strokeStyle = '#ff0066'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(canvas.width, 20); ctx.stroke();
-        this.bubbles.forEach(b => { ctx.fillStyle = b.color; ctx.beginPath(); ctx.arc(b.x, b.y, this.r, 0, Math.PI * 2); ctx.fill(); });
-        if (this.flying) { ctx.fillStyle = this.flying.color; ctx.beginPath(); ctx.arc(this.flying.x, this.flying.y, this.r, 0, Math.PI * 2); ctx.fill(); }
+        const bubble = (b,r) => {
+            ctx.fillStyle=b.color; ctx.beginPath();ctx.arc(b.x,b.y,r,0,Math.PI*2);ctx.fill();
+            ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+            ctx.fillStyle='#06101c';ctx.font='bold 18px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+            ctx.fillText(String(this.colors.indexOf(b.color)+1),b.x,b.y);ctx.textBaseline='alphabetic';
+        };
+        this.bubbles.forEach(b => bubble(b,this.r));
+        if (this.flying) bubble(this.flying,this.r);
         ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(this.shooter.x, this.shooter.y);
         ctx.lineTo(this.shooter.x + Math.cos(this.shooter.angle) * 60, this.shooter.y + Math.sin(this.shooter.angle) * 60); ctx.stroke();
-        ctx.fillStyle = this.current.color; ctx.beginPath(); ctx.arc(this.shooter.x, this.shooter.y, this.r * 0.8, 0, Math.PI * 2); ctx.fill();
+        bubble({x:this.shooter.x,y:this.shooter.y,color:this.current.color},this.r*0.8);
     }
 }
 
@@ -220,7 +226,7 @@ class Tetris {
         this.shapes = [[[[1,1,1,1]],'#00ffff'],[[[1,1],[1,1]],'#ffff00'],[[[0,1,0],[1,1,1]],'#ff00ff'],
             [[[1,0],[1,0],[1,1]],'#ff6600'],[[[0,1],[0,1],[1,1]],'#0066ff'],[[[1,1,0],[0,1,1]],'#00ff00'],[[[0,1,1],[1,1,0]],'#ff0066']];
         this.piece = null; this.px = 0; this.py = 0; this.timer = 0; this.interval = 1000; this.lastInput = 0;
-        this.moveDir = 1; // For 1-switch auto-movement
+        this.moveDir = 1; this.moveTimer = 0;
         this.spawn();
     }
     spawn() {
@@ -245,15 +251,15 @@ class Tetris {
         this.spawn();
     }
     update(sm) {
-        const now = Date.now();
+        const now = gameNow();
         if (this.switchMode === 1) {
             // 1-switch: auto-move horizontally, press to rotate
-            if (!this.collides(this.px + this.moveDir, this.py, this.piece.shape)) { 
-                this.px += this.moveDir * 0.05 * sm; 
-            } else {
-                this.moveDir *= -1;
+            this.moveTimer += 16 * sm;
+            if (this.moveTimer >= 400) {
+                this.moveTimer = 0;
+                if (this.collides(this.px + this.moveDir, this.py, this.piece.shape)) this.moveDir *= -1;
+                if (!this.collides(this.px + this.moveDir, this.py, this.piece.shape)) this.px += this.moveDir;
             }
-            this.px = Math.round(this.px); // Snap to grid
             if (input.leftPressed || input.rightPressed) { 
                 const rot = this.rotate(this.piece.shape); 
                 if (!this.collides(this.px, this.py, rot)) { this.piece.shape = rot; playSound('move'); } 
@@ -261,12 +267,18 @@ class Tetris {
         } else {
             // 2-switch: left moves, right rotates
             if (now - this.lastInput > 150) {
-                if (input.leftPressed && !this.collides(this.px - 1, this.py, this.piece.shape)) { this.px--; playSound('move'); this.lastInput = now; }
+                if (input.leftPressed) {
+                    // With only move and rotate available, cycling past the left
+                    // edge must also make the right-hand columns reachable.
+                    const x = this.px > 0 ? this.px - 1 : this.gw - this.piece.shape[0].length;
+                    if (!this.collides(x, this.py, this.piece.shape)) { this.px=x;playSound('move'); }
+                    this.lastInput=now;
+                }
                 if (input.rightPressed) { const rot = this.rotate(this.piece.shape); if (!this.collides(this.px, this.py, rot)) { this.piece.shape = rot; playSound('move'); } this.lastInput = now; }
             }
         }
         this.timer += 16 * sm;
-        if (this.timer >= this.interval / sm) { this.timer = 0; if (!this.collides(this.px, this.py + 1, this.piece.shape)) this.py++; else this.lock(); }
+        if (this.timer >= this.interval) { this.timer = 0; if (!this.collides(this.px, this.py + 1, this.piece.shape)) this.py++; else this.lock(); }
     }
     draw() {
         ctx.fillStyle = '#0a0a1a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -278,58 +290,6 @@ class Tetris {
     }
 }
 
-// GAME 6: RACING
-class Racing {
-    constructor() { this.score = 0; this.level = 1; this.gameOver = false; this.switchMode = 2; }
-    init() {
-        this.score = 0; this.level = 1; this.gameOver = false;
-        this.roadW = Math.min(300, canvas.width * 0.7); this.roadX = (canvas.width - this.roadW) / 2;
-        this.player = { x: canvas.width / 2, y: canvas.height - 80, w: 40, h: 60, speed: 6, dir: 1 };
-        this.obstacles = []; this.coins = []; this.lines = [];
-        for (let i = 0; i < 10; i++) this.lines.push({ y: i * 80 });
-        this.spawnTimer = 0; this.scrollSpeed = 5; this.distance = 0;
-    }
-    update(sm) {
-        const speed = this.scrollSpeed * sm * (1 + this.level * 0.2);
-        if (this.switchMode === 1) {
-            // 1-switch: auto-steer, press either to change direction
-            if (input.leftPressed || input.rightPressed) { this.player.dir *= -1; playSound('move'); }
-            const steerAmount = this.player.speed * sm * this.player.dir;
-            this.obstacles.forEach(o => o.x -= steerAmount); this.coins.forEach(c => c.x -= steerAmount); this.roadX -= steerAmount * 0.5;
-        } else {
-            // 2-switch: normal left/right steering
-            if (input.left) { this.obstacles.forEach(o => o.x += this.player.speed * sm); this.coins.forEach(c => c.x += this.player.speed * sm); this.roadX += this.player.speed * sm * 0.5; }
-            if (input.right) { this.obstacles.forEach(o => o.x -= this.player.speed * sm); this.coins.forEach(c => c.x -= this.player.speed * sm); this.roadX -= this.player.speed * sm * 0.5; }
-        }
-        this.roadX = Math.max(20, Math.min(canvas.width - this.roadW - 20, this.roadX));
-        this.lines.forEach(l => { l.y += speed; if (l.y > canvas.height) l.y -= canvas.height + 80; });
-        this.obstacles = this.obstacles.filter(o => { o.y += speed;
-            if (Math.abs(this.player.x - o.x) < (this.player.w + o.w) / 2 && Math.abs(this.player.y - o.y) < (this.player.h + o.h) / 2) this.gameOver = true;
-            return o.y < canvas.height + 100; });
-        this.coins = this.coins.filter(c => { c.y += speed;
-            if (Math.hypot(this.player.x - c.x, this.player.y - c.y) < 40) { this.score += 50; playSound('score'); return false; }
-            return c.y < canvas.height + 50; });
-        this.spawnTimer += 16 * sm;
-        if (this.spawnTimer >= 1500 / (1 + this.level * 0.1)) { this.spawnTimer = 0;
-            const lw = this.roadW / 3, lane = Math.floor(Math.random() * 3), x = this.roadX + lane * lw + lw / 2;
-            if (Math.random() > 0.3) this.obstacles.push({ x, y: -60, w: 35, h: 55, color: ['#ff0066', '#ff6600', '#ffff00', '#00ff66'][Math.floor(Math.random() * 4)] });
-            else this.coins.push({ x, y: -30, r: 15 });
-        }
-        this.distance += speed; this.score = Math.floor(this.distance / 10);
-        if (this.distance > this.level * 2000) { this.level++; playSound('score'); }
-    }
-    draw() {
-        ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#0a3a0a'; ctx.fillRect(0, 0, this.roadX, canvas.height); ctx.fillRect(this.roadX + this.roadW, 0, canvas.width - this.roadX - this.roadW, canvas.height);
-        ctx.fillStyle = '#333'; ctx.fillRect(this.roadX, 0, this.roadW, canvas.height);
-        ctx.fillStyle = '#fff'; ctx.fillRect(this.roadX, 0, 5, canvas.height); ctx.fillRect(this.roadX + this.roadW - 5, 0, 5, canvas.height);
-        ctx.fillStyle = '#ffff00'; const lw = this.roadW / 3;
-        this.lines.forEach(l => { ctx.fillRect(this.roadX + lw - 3, l.y, 6, 40); ctx.fillRect(this.roadX + lw * 2 - 3, l.y, 6, 40); });
-        this.coins.forEach(c => { ctx.fillStyle = '#ffff00'; ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.fill(); });
-        this.obstacles.forEach(o => { ctx.fillStyle = o.color; ctx.beginPath(); ctx.roundRect(o.x - o.w / 2, o.y - o.h / 2, o.w, o.h, 5); ctx.fill(); });
-        ctx.fillStyle = '#00ffff'; ctx.beginPath(); ctx.roundRect(this.player.x - this.player.w / 2, this.player.y - this.player.h / 2, this.player.w, this.player.h, 5); ctx.fill();
-    }
-}
 
 // GAME 7: PONG
 class Pong {
@@ -373,7 +333,7 @@ class Pong {
         ctx.fillStyle = '#00ffff'; ctx.fillRect(15, this.player.y - this.player.h / 2, this.pw, this.player.h);
         ctx.fillStyle = '#ff0066'; ctx.fillRect(canvas.width - 15 - this.pw, this.ai.y - this.ai.h / 2, this.pw, this.ai.h);
         ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(this.ball.x, this.ball.y, this.ball.r, 0, Math.PI * 2); ctx.fill();
-        ctx.font = '20px "Press Start 2P"'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+        ctx.font = '20px system-ui'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
         ctx.fillText(Math.floor(this.score / 10), canvas.width / 4, 40); ctx.fillText(this.aiScore, canvas.width * 3 / 4, 40);
     }
 }
@@ -392,7 +352,7 @@ class Flappy {
         if (this.bird.y < 0 || this.bird.y > canvas.height) { this.gameOver = true; return; }
         this.pipeTimer += 16 * sm;
         if (this.pipeTimer > 1800 / (1 + this.level * 0.1)) {
-            this.pipeTimer = 0; const gap = 150 - this.level * 5, gapY = Math.random() * (canvas.height - gap - 100) + 50;
+            this.pipeTimer = 0; const gap = Math.max(100, 150 - this.level * 5), gapY = Math.random() * (canvas.height - gap - 100) + 50;
             this.pipes.push({ x: canvas.width, gapY, gap, w: 60, passed: false });
         }
         this.pipes = this.pipes.filter(p => {

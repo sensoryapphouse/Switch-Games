@@ -6,7 +6,11 @@ class Pinball {
         this.ball = { x: canvas.width / 2, y: canvas.height / 2, vx: 3, vy: -5, r: 10 };
         this.leftFlipper = { angle: 0.3, active: false };
         this.rightFlipper = { angle: -0.3, active: false };
-        this.flipperLen = 90; this.flipperY = canvas.height - 80;
+        this.flipperLen = (canvas.width / 2 - 40) / (2 * Math.cos(0.3)); this.flipperY = canvas.height - 80;
+        this.guides = [
+            [canvas.width * 0.12, canvas.height * 0.5, canvas.width * 0.25, this.flipperY - 5],
+            [canvas.width * 0.88, canvas.height * 0.5, canvas.width * 0.75, this.flipperY - 5]
+        ];
         this.bumpers = [];
         this.createBumpers();
         this.balls = 3;
@@ -24,8 +28,8 @@ class Pinball {
         }
     }
     update(sm) {
-        this.leftFlipper.active = input.left;
-        this.rightFlipper.active = input.right;
+        this.leftFlipper.active = input.left || (this.switchMode === 1 && input.right);
+        this.rightFlipper.active = input.right || (this.switchMode === 1 && input.left);
         
         const targetL = this.leftFlipper.active ? -0.5 : 0.3;
         const targetR = this.rightFlipper.active ? 0.5 : -0.3;
@@ -40,14 +44,7 @@ class Pinball {
         if (this.ball.x >= canvas.width - this.ball.r) { this.ball.x = canvas.width - this.ball.r; this.ball.vx = -Math.abs(this.ball.vx); playSound('hit'); }
         if (this.ball.y <= this.ball.r) { this.ball.y = this.ball.r; this.ball.vy = Math.abs(this.ball.vy); playSound('hit'); }
         // Side guide walls: deflect ball back toward flippers
-        const leftGuideX = canvas.width * 0.18;
-        const rightGuideX = canvas.width * 0.82;
-        if (this.ball.x < leftGuideX && this.ball.y > this.flipperY - 60) {
-            if (this.ball.vx < 0) { this.ball.vx = Math.abs(this.ball.vx) * 0.9; this.ball.vy = Math.min(this.ball.vy, -1); playSound('hit'); }
-        }
-        if (this.ball.x > rightGuideX && this.ball.y > this.flipperY - 60) {
-            if (this.ball.vx > 0) { this.ball.vx = -Math.abs(this.ball.vx) * 0.9; this.ball.vy = Math.min(this.ball.vy, -1); playSound('hit'); }
-        }
+        this.guides.forEach(guide => this.checkGuideCollision(guide));
         
         if (this.ball.y > canvas.height + 50) {
             this.balls--;
@@ -79,6 +76,17 @@ class Pinball {
         
         if (this.score >= this.level * 1000) { this.level++; this.createBumpers(); playSound('score'); }
     }
+    checkGuideCollision([x1, y1, x2, y2]) {
+        const dx = x2 - x1, dy = y2 - y1;
+        const t = Math.max(0, Math.min(1, ((this.ball.x-x1)*dx+(this.ball.y-y1)*dy)/(dx*dx+dy*dy)));
+        const px = x1+t*dx, py = y1+t*dy;
+        const distance = Math.hypot(this.ball.x-px, this.ball.y-py);
+        if (distance >= this.ball.r+2.5 || distance === 0) return;
+        const nx = (this.ball.x-px)/distance, ny = (this.ball.y-py)/distance;
+        const dot = this.ball.vx*nx+this.ball.vy*ny;
+        this.ball.x = px+nx*(this.ball.r+3); this.ball.y = py+ny*(this.ball.r+3);
+        if (dot < 0) { this.ball.vx -= 2*dot*nx; this.ball.vy -= 2*dot*ny; playSound('hit'); }
+    }
     checkFlipperCollision(fx, fy, angle, dir) {
         const endX = fx + Math.cos(angle) * this.flipperLen * dir;
         const endY = fy + Math.sin(angle) * this.flipperLen;
@@ -105,8 +113,7 @@ class Pinball {
         
         // Side guide walls
         ctx.strokeStyle = '#888'; ctx.lineWidth = 5; ctx.lineCap = 'butt';
-        ctx.beginPath(); ctx.moveTo(canvas.width * 0.12, canvas.height * 0.5); ctx.lineTo(canvas.width * 0.25, this.flipperY - 5); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(canvas.width * 0.88, canvas.height * 0.5); ctx.lineTo(canvas.width * 0.75, this.flipperY - 5); ctx.stroke();
+        this.guides.forEach(([x1,y1,x2,y2]) => { ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); });
 
         // Flippers
         ctx.strokeStyle = '#ff0066'; ctx.lineWidth = 16; ctx.lineCap = 'round';
@@ -127,8 +134,8 @@ class Pinball {
         ctx.beginPath(); ctx.arc(this.ball.x - 3, this.ball.y - 3, 4, 0, Math.PI * 2); ctx.fill();
         
         // Balls remaining
-        ctx.fillStyle = '#fff'; ctx.font = '12px "Press Start 2P"';
-        ctx.fillText(`BALLS: ${this.balls}`, 10, 25);
+        ctx.fillStyle = '#fff'; ctx.font = '16px system-ui';
+        ctx.fillText(`${ui("balls")}: ${this.balls}`, 10, 25);
     }
 }
 
@@ -185,6 +192,7 @@ class BrickBuilder {
             }
         }
         
+        if (this.switchMode === 1) return; // one-switch players choose when to drop
         this.dropTimer += 16 * sm;
         if (this.dropTimer >= this.dropInterval / (1 + this.level * 0.2)) {
             this.dropTimer = 0;
@@ -192,6 +200,7 @@ class BrickBuilder {
         }
     }
     getDropY(x) {
+        x = Math.max(0, Math.min(this.gridW - this.current.w, Math.round(x)));
         for (let y = 0; y < this.gridH; y++) {
             for (let i = 0; i < this.current.w; i++) {
                 if (x + i < this.gridW && this.grid[y][x + i]) return y - 1;
@@ -200,6 +209,7 @@ class BrickBuilder {
         return this.gridH - 1;
     }
     dropBlock() {
+        this.currentX = Math.max(0, Math.min(this.gridW - this.current.w, Math.round(this.currentX)));
         const dropY = this.getDropY(this.currentX);
         if (dropY < 0) { this.gameOver = true; return; }
         
@@ -377,137 +387,6 @@ class SpaceDodge {
     }
 }
 
-// GAME 28: BOXING
-class Boxing {
-    constructor() { this.score = 0; this.level = 1; this.gameOver = false; this.switchMode = 2; }
-    init() {
-        this.score = 0; this.level = 1; this.gameOver = false;
-        this.player = { health: 100, guard: null, punching: null, punchTimer: 0, punchSide: 1 };
-        this.enemy = { health: 100, guard: null, punching: null, punchTimer: 0, thinkTimer: 0 };
-        this.hitTimer = 0;
-        this.enemyHitTimer = 0;
-    }
-    update(sm) {
-        // Player input
-        if (this.player.punchTimer > 0) this.player.punchTimer -= 16 * sm;
-        else this.player.punching = null;
-        
-        if (this.switchMode === 1) {
-            // 1-switch: press to punch, alternates sides automatically
-            if ((input.leftPressed || input.rightPressed) && !this.player.punching) {
-                const side = this.player.punchSide > 0 ? 'left' : 'right';
-                this.player.punching = side; this.player.punchTimer = 300;
-                this.player.punchSide *= -1; // Alternate
-                if (this.enemy.guard !== side && this.enemy.punching !== side) {
-                    this.enemy.health -= 10 + this.level;
-                    this.score += 10 * this.level;
-                    this.enemyHitTimer = 200;
-                    playSound('hit');
-                } else playSound('low');
-            }
-            this.player.guard = null; // No guarding in 1-switch mode
-        } else {
-            // 2-switch: left button punches/guards left, right button punches/guards right
-            if (input.leftPressed && !this.player.punching) {
-                this.player.punching = 'left'; this.player.punchTimer = 300;
-                if (this.enemy.guard !== 'left' && this.enemy.punching !== 'left') {
-                    this.enemy.health -= 10 + this.level;
-                    this.score += 10 * this.level;
-                    this.enemyHitTimer = 200;
-                    playSound('hit');
-                } else playSound('low');
-            }
-            if (input.rightPressed && !this.player.punching) {
-                this.player.punching = 'right'; this.player.punchTimer = 300;
-                if (this.enemy.guard !== 'right' && this.enemy.punching !== 'right') {
-                    this.enemy.health -= 10 + this.level;
-                    this.score += 10 * this.level;
-                    this.enemyHitTimer = 200;
-                    playSound('hit');
-                } else playSound('low');
-            }
-            
-            if (input.left && !this.player.punching) this.player.guard = 'left';
-            else if (input.right && !this.player.punching) this.player.guard = 'right';
-            else if (!this.player.punching) this.player.guard = null;
-        }
-        
-        // Enemy AI
-        if (this.enemy.punchTimer > 0) this.enemy.punchTimer -= 16 * sm;
-        else this.enemy.punching = null;
-        
-        this.enemy.thinkTimer -= 16 * sm;
-        if (this.enemy.thinkTimer <= 0) {
-            this.enemy.thinkTimer = 500 / (1 + this.level * 0.2);
-            const action = Math.random();
-            if (action < 0.3 + this.level * 0.05) {
-                // Punch
-                const side = Math.random() > 0.5 ? 'left' : 'right';
-                this.enemy.punching = side; this.enemy.punchTimer = 300;
-                if (this.player.guard !== side && this.player.punching !== side) {
-                    this.player.health -= 8 + this.level * 2;
-                    this.hitTimer = 200;
-                    playSound('hit');
-                } else playSound('low');
-            } else if (action < 0.6) {
-                this.enemy.guard = Math.random() > 0.5 ? 'left' : 'right';
-            } else {
-                this.enemy.guard = null;
-            }
-        }
-        
-        if (this.hitTimer > 0) this.hitTimer -= 16 * sm;
-        if (this.enemyHitTimer > 0) this.enemyHitTimer -= 16 * sm;
-        
-        if (this.player.health <= 0) { this.gameOver = true; }
-        if (this.enemy.health <= 0) { this.level++; this.enemy.health = 100 + this.level * 20; this.player.health = Math.min(100, this.player.health + 30); playSound('score'); }
-    }
-    draw() {
-        ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Ring floor
-        ctx.fillStyle = '#8B4513'; ctx.fillRect(0, canvas.height * 0.6, canvas.width, canvas.height * 0.4);
-        
-        // Health bars
-        ctx.fillStyle = '#333'; ctx.fillRect(20, 20, 150, 20); ctx.fillRect(canvas.width - 170, 20, 150, 20);
-        ctx.fillStyle = '#00ff00'; ctx.fillRect(20, 20, Math.max(0, this.player.health * 1.5), 20);
-        ctx.fillStyle = '#ff0000'; ctx.fillRect(canvas.width - 170, 20, Math.max(0, this.enemy.health * 1.5), 20);
-        
-        const py = canvas.height * 0.45, ey = canvas.height * 0.35;
-        const px = canvas.width * 0.35, ex = canvas.width * 0.65;
-        
-        // Enemy
-        ctx.fillStyle = this.enemyHitTimer > 0 ? '#ff6666' : '#ffccaa';
-        ctx.beginPath(); ctx.arc(ex, ey - 30, 30, 0, Math.PI * 2); ctx.fill(); // Head
-        ctx.fillStyle = '#ff0000';
-        ctx.fillRect(ex - 20, ey, 40, 50); // Body
-        // Gloves
-        const eLeftX = this.enemy.punching === 'left' ? ex - 60 : (this.enemy.guard === 'left' ? ex - 35 : ex - 45);
-        const eLeftY = this.enemy.punching === 'left' ? ey + 20 : (this.enemy.guard === 'left' ? ey - 10 : ey + 15);
-        const eRightX = this.enemy.punching === 'right' ? ex + 60 : (this.enemy.guard === 'right' ? ex + 35 : ex + 45);
-        const eRightY = this.enemy.punching === 'right' ? ey + 20 : (this.enemy.guard === 'right' ? ey - 10 : ey + 15);
-        ctx.fillStyle = '#0000ff';
-        ctx.beginPath(); ctx.arc(eLeftX, eLeftY, 18, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(eRightX, eRightY, 18, 0, Math.PI * 2); ctx.fill();
-        
-        // Player
-        ctx.fillStyle = this.hitTimer > 0 ? '#ff6666' : '#ffccaa';
-        ctx.beginPath(); ctx.arc(px, py - 30, 35, 0, Math.PI * 2); ctx.fill(); // Head
-        ctx.fillStyle = '#00aaff';
-        ctx.fillRect(px - 25, py, 50, 60); // Body
-        // Gloves
-        const pLeftX = this.player.punching === 'left' ? px - 80 : (this.player.guard === 'left' ? px - 40 : px - 55);
-        const pLeftY = this.player.punching === 'left' ? py : (this.player.guard === 'left' ? py - 20 : py + 10);
-        const pRightX = this.player.punching === 'right' ? px + 80 : (this.player.guard === 'right' ? px + 40 : px + 55);
-        const pRightY = this.player.punching === 'right' ? py : (this.player.guard === 'right' ? py - 20 : py + 10);
-        ctx.fillStyle = '#ff0000';
-        ctx.beginPath(); ctx.arc(pLeftX, pLeftY, 22, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(pRightX, pRightY, 22, 0, Math.PI * 2); ctx.fill();
-        
-        ctx.fillStyle = '#fff'; ctx.font = '12px "Press Start 2P"'; ctx.textAlign = 'center';
-        ctx.fillText(`ROUND ${this.level}`, canvas.width / 2, 35);
-    }
-}
 
 // GAME 29: WIRE LOOP
 class WireLoop {
@@ -515,7 +394,7 @@ class WireLoop {
     init() {
         this.score = 0; this.level = 1; this.gameOver = false;
         this.generateWire();
-        this.ringPos = 0;
+        this.ringPos = 0; this.completedScore = 0;
         this.touching = false;
         this.touchTimer = 0;
         this.lives = 3;
@@ -573,8 +452,9 @@ class WireLoop {
             this.touchTimer = 0;
         }
 
-        this.score = Math.floor(this.ringPos * 1000);
+        this.score = this.completedScore + Math.floor(this.ringPos * 1000);
         if (this.ringPos >= 1) {
+            this.completedScore += 1000;
             this.level++;
             this.ringPos = 0;
             this.ringY = canvas.height / 2;
@@ -618,183 +498,12 @@ class WireLoop {
         for (let i = 0; i < this.lives; i++) ctx.fillText('♥', 55 + i * 25, 60);
 
         // Hint: which button to press
-        ctx.fillStyle = '#aaa'; ctx.font = '10px "Press Start 2P"'; ctx.textAlign = 'center';
-        ctx.fillText(this.switchMode === 1 ? 'PRESS TO ADVANCE' : 'RIGHT: FORWARD  LEFT: BACK', canvas.width / 2, canvas.height - 15);
+        ctx.fillStyle = '#aaa'; ctx.font = '16px system-ui'; ctx.textAlign = 'center';
+        ctx.fillText(this.switchMode === 1 ? ui('forward') : '① '+ui('reverse')+'  ② '+ui('forward'), canvas.width / 2, canvas.height - 15, canvas.width - 24);
 
         if (this.touching) {
-            ctx.fillStyle = '#ff0000'; ctx.font = '14px "Press Start 2P"'; ctx.textAlign = 'center';
-            ctx.fillText('TOUCHING!', canvas.width / 2, canvas.height - 40);
+            ctx.fillStyle = '#ff0000'; ctx.font = '16px system-ui'; ctx.textAlign = 'center';
+            ctx.fillText(ui('touching'), canvas.width / 2, canvas.height - 40);
         }
-    }
-}
-
-// GAME 30: COIN PUSHER
-class CoinPusher {
-    constructor() { this.score = 0; this.level = 1; this.gameOver = false; this.switchMode = 2; }
-    init() {
-        this.score = 0; this.level = 1; this.gameOver = false;
-        this.dropX = canvas.width / 2;
-        this.dropDir = 1; // For 1-switch auto-movement
-        this.coins = [];
-        this.pusher = { y: canvas.height * 0.3, targetY: canvas.height * 0.3, speed: 0 };
-        this.dropTimer = 0;
-        this.coinsLeft = 20;
-        this.pushTimer = 0;
-        
-        // Initial coins
-        for (let i = 0; i < 15; i++) {
-            this.coins.push({
-                x: Math.random() * (canvas.width - 80) + 40,
-                y: canvas.height * 0.4 + Math.random() * (canvas.height * 0.35),
-                vx: 0, vy: 0, r: 18
-            });
-        }
-    }
-    update(sm) {
-        if (this.switchMode === 1) {
-            // 1-switch: auto-move dropper, press to drop coin
-            this.dropX += 4 * sm * this.dropDir;
-            if (this.dropX <= 40) { this.dropX = 40; this.dropDir = 1; }
-            if (this.dropX >= canvas.width - 40) { this.dropX = canvas.width - 40; this.dropDir = -1; }
-            if ((input.leftPressed || input.rightPressed) && this.coinsLeft > 0) {
-                this.coins.push({ x: this.dropX, y: 50, vx: (Math.random() - 0.5) * 2, vy: 0, r: 18 });
-                this.coinsLeft--;
-                playSound('hit');
-            }
-        } else {
-            // 2-switch: normal left/right movement, press to drop
-            if (input.left && this.dropX > 40) this.dropX -= 5 * sm;
-            if (input.right && this.dropX < canvas.width - 40) this.dropX += 5 * sm;
-            
-            // Drop coin on button release or auto-drop
-            if ((input.leftPressed || input.rightPressed) && this.coinsLeft > 0) {
-                this.coins.push({ x: this.dropX, y: 50, vx: (Math.random() - 0.5) * 2, vy: 0, r: 18 });
-                this.coinsLeft--;
-                playSound('hit');
-            }
-        }
-        
-        // Pusher movement
-        this.pushTimer += 16 * sm;
-        if (this.pushTimer > 2000) {
-            this.pushTimer = 0;
-            this.pusher.speed = 2;
-        }
-        if (this.pusher.speed > 0) {
-            this.pusher.y += this.pusher.speed * sm;
-            if (this.pusher.y > canvas.height * 0.4) {
-                this.pusher.speed = -2;
-            }
-        } else if (this.pusher.speed < 0) {
-            this.pusher.y += this.pusher.speed * sm;
-            if (this.pusher.y < canvas.height * 0.3) {
-                this.pusher.y = canvas.height * 0.3;
-                this.pusher.speed = 0;
-            }
-        }
-        
-        // Update coins
-        this.coins.forEach(c => {
-            c.vy += 0.3 * sm;
-            c.x += c.vx * sm;
-            c.y += c.vy * sm;
-            c.vx *= 0.98;
-            c.vy *= 0.98;
-            
-            // Wall collision
-            if (c.x < c.r + 20) { c.x = c.r + 20; c.vx = Math.abs(c.vx) * 0.5; }
-            if (c.x > canvas.width - c.r - 20) { c.x = canvas.width - c.r - 20; c.vx = -Math.abs(c.vx) * 0.5; }
-            
-            // Pusher collision
-            if (c.y < this.pusher.y + 20 && c.y > this.pusher.y - 10 && this.pusher.speed > 0) {
-                c.vy = 3;
-                c.vx += (Math.random() - 0.5) * 2;
-            }
-            
-            // Floor friction
-            if (c.y > canvas.height * 0.4) {
-                c.vy *= 0.9;
-                c.vx *= 0.95;
-            }
-        });
-        
-        // Coin-coin collision
-        for (let i = 0; i < this.coins.length; i++) {
-            for (let j = i + 1; j < this.coins.length; j++) {
-                const dx = this.coins[j].x - this.coins[i].x;
-                const dy = this.coins[j].y - this.coins[i].y;
-                const dist = Math.hypot(dx, dy);
-                if (dist < this.coins[i].r + this.coins[j].r) {
-                    const angle = Math.atan2(dy, dx);
-                    const force = 0.5;
-                    this.coins[i].vx -= Math.cos(angle) * force;
-                    this.coins[i].vy -= Math.sin(angle) * force;
-                    this.coins[j].vx += Math.cos(angle) * force;
-                    this.coins[j].vy += Math.sin(angle) * force;
-                }
-            }
-        }
-        
-        // Coins falling off
-        this.coins = this.coins.filter(c => {
-            if (c.y > canvas.height - 20) {
-                this.score += 10 * this.level;
-                playSound('score');
-                return false;
-            }
-            if (c.x < 20 || c.x > canvas.width - 20) {
-                return false; // Lost off sides
-            }
-            return true;
-        });
-        
-        if (this.score >= this.level * 200) { this.level++; this.coinsLeft += 10; playSound('score'); }
-        if (this.coinsLeft <= 0 && this.coins.length === 0) this.gameOver = true;
-    }
-    draw() {
-        ctx.fillStyle = '#2a1a0a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Machine frame
-        ctx.fillStyle = '#8B4513';
-        ctx.fillRect(0, 0, 20, canvas.height);
-        ctx.fillRect(canvas.width - 20, 0, 20, canvas.height);
-        
-        // Pusher
-        ctx.fillStyle = '#c0c0c0';
-        ctx.fillRect(25, this.pusher.y - 10, canvas.width - 50, 20);
-        ctx.fillStyle = '#a0a0a0';
-        ctx.fillRect(25, this.pusher.y - 5, canvas.width - 50, 10);
-        
-        // Drop zone
-        ctx.fillStyle = 'rgba(255,255,0,0.2)';
-        ctx.fillRect(25, 30, canvas.width - 50, canvas.height * 0.25);
-        
-        // Edge/prize zone
-        ctx.fillStyle = '#333';
-        ctx.fillRect(20, canvas.height - 40, canvas.width - 40, 40);
-        ctx.fillStyle = '#00ff00';
-        ctx.fillRect(20, canvas.height - 40, canvas.width - 40, 5);
-        
-        // Coins
-        this.coins.forEach(c => {
-            const gradient = ctx.createRadialGradient(c.x - 5, c.y - 5, 0, c.x, c.y, c.r);
-            gradient.addColorStop(0, '#ffff00');
-            gradient.addColorStop(1, '#cc9900');
-            ctx.fillStyle = gradient;
-            ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeStyle = '#aa7700'; ctx.lineWidth = 2; ctx.stroke();
-        });
-        
-        // Drop indicator
-        ctx.fillStyle = '#ffff00';
-        ctx.beginPath();
-        ctx.moveTo(this.dropX, 20);
-        ctx.lineTo(this.dropX - 10, 5);
-        ctx.lineTo(this.dropX + 10, 5);
-        ctx.fill();
-        
-        // UI
-        ctx.fillStyle = '#fff'; ctx.font = '12px "Press Start 2P"'; ctx.textAlign = 'left';
-        ctx.fillText(`COINS: ${this.coinsLeft}`, 30, 25);
     }
 }

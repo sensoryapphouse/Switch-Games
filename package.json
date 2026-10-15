@@ -1,0 +1,10 @@
+{
+  "name": "switch-games",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.cjs",
+    "test": "node scripts/build.cjs --check && node --test tests/*.test.cjs",
+    "start": "node scripts/build.cjs && python3 -m http.server 8080 --bind 127.0.0.1"
+  }
+}

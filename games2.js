@@ -3,7 +3,7 @@ class Dino {
     constructor() { this.score = 0; this.level = 1; this.gameOver = false; this.switchMode = 2; }
     init() {
         this.score = 0; this.level = 1; this.gameOver = false;
-        this.ground = canvas.height - 50;
+        this.ground = canvas.height - 35;
         this.dino = { x: 80, y: this.ground, w: 40, h: 50, vy: 0, ducking: false };
         this.obstacles = []; this.timer = 0; this.speed = 6; this.jumping = false;
     }
@@ -25,26 +25,26 @@ class Dino {
             this.timer = 0;
             const type = this.switchMode === 1 ? 'cactus' : (Math.random() > 0.7 ? 'bird' : 'cactus'); // No birds in 1-switch mode
             if (type === 'cactus') this.obstacles.push({ x: canvas.width, y: this.ground, w: 20, h: 40, type });
-            else this.obstacles.push({ x: canvas.width, y: this.ground - 60, w: 30, h: 20, type });
+            else this.obstacles.push({ x: canvas.width, y: this.ground - 30, w: 30, h: 20, type });
         }
         this.obstacles = this.obstacles.filter(o => {
             o.x -= this.speed * sm * (1 + this.level * 0.1);
-            const dy = this.dino.y - o.y, dh = h;
-            if (o.x < this.dino.x + this.dino.w && o.x + o.w > this.dino.x && dy < o.h && dy + dh > 0) this.gameOver = true;
+            if (o.x < this.dino.x + this.dino.w && o.x + o.w > this.dino.x &&
+                this.dino.y > o.y - o.h && this.dino.y - h < o.y) this.gameOver = true;
             return o.x > -50;
         });
         this.score++; if (this.score % 500 === 0) { this.level++; playSound('score'); }
     }
     draw() {
         ctx.fillStyle = '#f7f7f7'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#555'; ctx.fillRect(0, this.ground + 50, canvas.width, 5);
+        ctx.fillStyle = '#555'; ctx.fillRect(0, this.ground, canvas.width, 5);
         const h = this.dino.ducking ? 25 : 50;
-        ctx.fillStyle = '#555'; ctx.fillRect(this.dino.x, this.dino.y + 50 - h, this.dino.w, h);
-        ctx.fillStyle = '#333'; ctx.fillRect(this.dino.x + 25, this.dino.y + 50 - h - 15, 20, 20);
-        ctx.fillStyle = '#fff'; ctx.fillRect(this.dino.x + 35, this.dino.y + 50 - h - 12, 5, 5);
+        ctx.fillStyle = '#555'; ctx.fillRect(this.dino.x, this.dino.y - h, this.dino.w, h);
+        ctx.fillStyle = '#333'; ctx.fillRect(this.dino.x + 25, this.dino.y - h, 20, 20);
+        ctx.fillStyle = '#fff'; ctx.fillRect(this.dino.x + 35, this.dino.y - h + 3, 5, 5);
         this.obstacles.forEach(o => {
-            if (o.type === 'cactus') { ctx.fillStyle = '#228B22'; ctx.fillRect(o.x, o.y + 50 - o.h, o.w, o.h); }
-            else { ctx.fillStyle = '#666'; ctx.beginPath(); ctx.ellipse(o.x + o.w / 2, o.y + 50 - o.h / 2, o.w / 2, o.h / 2, 0, 0, Math.PI * 2); ctx.fill(); }
+            if (o.type === 'cactus') { ctx.fillStyle = '#228B22'; ctx.fillRect(o.x, o.y - o.h, o.w, o.h); }
+            else { ctx.fillStyle = '#666'; ctx.beginPath(); ctx.ellipse(o.x + o.w / 2, o.y - o.h / 2, o.w / 2, o.h / 2, 0, 0, Math.PI * 2); ctx.fill(); }
         });
     }
 }
@@ -99,7 +99,7 @@ class Helicopter {
         ctx.fillStyle = '#aaa';
         ctx.fillRect(hx + hw + hw * 0.35 - 2, hy - 6, 4, hh + 12);
         // Main rotor blade (animated by using heli.x as seed)
-        const rotAngle = (Date.now() * 0.01) % (Math.PI * 2);
+        const rotAngle = (typeof settings !== 'undefined' && settings.reducedMotion) ? 0 : (gameNow() * 0.01) % (Math.PI * 2);
         ctx.strokeStyle = '#888'; ctx.lineWidth = 4; ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(hx + hw * 0.45 + Math.cos(rotAngle) * 40, hy - 3 + Math.sin(rotAngle) * 4);
@@ -179,8 +179,8 @@ class Rhythm {
                 ctx.beginPath(); ctx.arc(x, n.y, 25, 0, Math.PI * 2); ctx.fill();
             });
         }
-        ctx.fillStyle = '#fff'; ctx.font = '16px "Press Start 2P"'; ctx.textAlign = 'center';
-        ctx.fillText(`COMBO: ${this.combo}`, canvas.width / 2, 40);
+        ctx.fillStyle = '#fff'; ctx.font = '16px system-ui'; ctx.textAlign = 'center';
+        ctx.fillText(`${ui("combo")}: ${this.combo}`, canvas.width / 2, 40);
     }
 }
 
@@ -202,10 +202,10 @@ class Tank {
             if (input.left) this.tank.angle -= 0.05 * sm;
             if (input.right) this.tank.angle += 0.05 * sm;
         }
-        if (Date.now() - this.lastShot > 300) {
+        if (gameNow() - this.lastShot > 300) {
             this.bullets.push({ x: this.tank.x + Math.cos(this.tank.angle) * 25, y: this.tank.y + Math.sin(this.tank.angle) * 25,
                 dx: Math.cos(this.tank.angle) * 8, dy: Math.sin(this.tank.angle) * 8 });
-            playSound('shoot'); this.lastShot = Date.now();
+            playSound('shoot'); this.lastShot = gameNow();
         }
         this.bullets = this.bullets.filter(b => { b.x += b.dx * sm; b.y += b.dy * sm;
             return b.x > 0 && b.x < canvas.width && b.y > 0 && b.y < canvas.height; });
@@ -250,6 +250,7 @@ class Tank {
         for (let i = -22; i < 22; i += 8) { ctx.fillRect(i, -18, 6, 8); ctx.fillRect(i, 10, 6, 8); }
         // Hull
         ctx.fillStyle = '#6a8a3a'; ctx.fillRect(-18, -12, 36, 24);
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(-18, -12, 36, 24);
         ctx.fillStyle = '#5a7a2a'; ctx.fillRect(-16, -10, 32, 20);
         // Turret
         ctx.fillStyle = '#7a9a45'; ctx.beginPath(); ctx.ellipse(0, 0, 14, 12, 0, 0, Math.PI * 2); ctx.fill();
@@ -274,6 +275,7 @@ class Tank {
             // Enemy tank body (red tones)
             ctx.fillStyle = '#882222'; ctx.fillRect(-e.r * 0.8, -e.r * 0.5, e.r * 1.6, e.r);
             ctx.fillStyle = '#aa3333'; ctx.fillRect(-e.r * 0.65, -e.r * 0.4, e.r * 1.3, e.r * 0.8);
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(-e.r * 0.8, -e.r * 0.5, e.r * 1.6, e.r);
             // Turret
             ctx.fillStyle = '#cc4444'; ctx.beginPath(); ctx.ellipse(0, 0, e.r * 0.5, e.r * 0.4, 0, 0, Math.PI * 2); ctx.fill();
             // Aim towards player
@@ -319,10 +321,10 @@ class Asteroids {
             if (input.left) this.ship.angle -= 0.08 * sm;
             if (input.right) this.ship.angle += 0.08 * sm;
         }
-        if (Date.now() - this.lastShot > 550) {
+        if (gameNow() - this.lastShot > 550) {
             this.bullets.push({ x: this.ship.x + Math.cos(this.ship.angle) * 15, y: this.ship.y + Math.sin(this.ship.angle) * 15,
                 dx: Math.cos(this.ship.angle) * 10, dy: Math.sin(this.ship.angle) * 10 });
-            playSound('shoot'); this.lastShot = Date.now();
+            playSound('shoot'); this.lastShot = gameNow();
         }
         this.bullets = this.bullets.filter(b => { b.x += b.dx * sm; b.y += b.dy * sm;
             return b.x > -10 && b.x < canvas.width + 10 && b.y > -10 && b.y < canvas.height + 10; });
@@ -427,105 +429,5 @@ class Skiing {
         ctx.fillStyle = '#222'; ctx.lineWidth = 4; ctx.lineCap = 'round';
         ctx.beginPath(); ctx.moveTo(sx - 18, sy + 12); ctx.lineTo(sx + 2, sy + 14); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(sx - 2, sy + 14); ctx.lineTo(sx + 18, sy + 12); ctx.stroke();
-    }
-}
-
-// GAME 15: FROGGER
-class Frogger {
-    constructor() { this.score = 0; this.level = 1; this.gameOver = false; this.switchMode = 2; }
-    init() {
-        this.score = 0; this.level = 1; this.gameOver = false;
-        this.frog = { x: canvas.width / 2, y: canvas.height - 40, w: 30, h: 30, jumpDir: 1 };
-        this.lanes = []; this.createLanes();
-    }
-    createLanes() {
-        this.lanes = [];
-        const laneH = (canvas.height - 100) / 8;
-        for (let i = 0; i < 8; i++) {
-            const y = 50 + i * laneH + laneH / 2;
-            const isWater = i < 4;
-            const speed = (2 + Math.random() * 2) * (1 + this.level * 0.2) * (i % 2 ? 1 : -1);
-            const items = [];
-            const count = 3 + Math.floor(Math.random() * 2);
-            for (let j = 0; j < count; j++) items.push({ x: j * (canvas.width / count) + Math.random() * 50, w: 60 + Math.random() * 40 });
-            this.lanes.push({ y, h: laneH - 10, speed, items, isWater });
-        }
-    }
-    update(sm) {
-        const step = 50;
-        if (this.switchMode === 1) {
-            // 1-switch: press to jump forward, auto alternate left/right
-            if (input.leftPressed || input.rightPressed) { 
-                this.frog.x += step * this.frog.jumpDir; 
-                this.frog.jumpDir *= -1; // Alternate direction
-                playSound('jump'); 
-            }
-        } else {
-            // 2-switch: left jumps left, right jumps right
-            if (input.leftPressed) { this.frog.x -= step; playSound('jump'); }
-            if (input.rightPressed) { this.frog.x += step; playSound('jump'); }
-        }
-        this.frog.x = Math.max(15, Math.min(canvas.width - 15, this.frog.x));
-        let onLog = false;
-        this.lanes.forEach(lane => {
-            lane.items.forEach(item => {
-                item.x += lane.speed * sm;
-                if (item.x > canvas.width + item.w) item.x = -item.w;
-                if (item.x < -item.w) item.x = canvas.width + item.w;
-                if (this.frog.y > lane.y - lane.h / 2 && this.frog.y < lane.y + lane.h / 2) {
-                    if (this.frog.x > item.x && this.frog.x < item.x + item.w) {
-                        if (lane.isWater) { onLog = true; this.frog.x += lane.speed * sm; }
-                        else this.gameOver = true;
-                    }
-                }
-            });
-            if (this.frog.y > lane.y - lane.h / 2 && this.frog.y < lane.y + lane.h / 2 && lane.isWater && !onLog) this.gameOver = true;
-        });
-        if (this.frog.y < 50) { this.score += 100 * this.level; playSound('score'); this.frog.y = canvas.height - 40;
-            if (this.score % 300 === 0) { this.level++; this.createLanes(); } }
-        if (this.frog.x < 0 || this.frog.x > canvas.width) this.gameOver = true;
-    }
-    draw() {
-        ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#228B22'; ctx.fillRect(0, 0, canvas.width, 50); ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
-        this.lanes.forEach(lane => {
-            ctx.fillStyle = lane.isWater ? '#4444ff' : '#333';
-            ctx.fillRect(0, lane.y - lane.h / 2, canvas.width, lane.h);
-            lane.items.forEach(item => {
-                ctx.fillStyle = lane.isWater ? '#8B4513' : '#ff6600';
-                ctx.fillRect(item.x, lane.y - 15, item.w, 30);
-            });
-        });
-        ctx.fillStyle = '#00ff00'; ctx.beginPath();
-        ctx.ellipse(this.frog.x, this.frog.y, 15, 12, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#004400'; ctx.beginPath(); ctx.arc(this.frog.x - 6, this.frog.y - 5, 4, 0, Math.PI * 2); ctx.arc(this.frog.x + 6, this.frog.y - 5, 4, 0, Math.PI * 2); ctx.fill();
-    }
-}
-
-// GAME 16: TUG OF WAR
-class Tug {
-    constructor() { this.score = 0; this.level = 1; this.gameOver = false; this.switchMode = 2; }
-    init() {
-        this.score = 0; this.level = 1; this.gameOver = false;
-        this.pos = 0.5; this.aiStrength = 0.3 + this.level * 0.05; this.pullPower = 0.02;
-    }
-    update(sm) {
-        if (input.leftPressed) { this.pos -= this.pullPower; playSound('hit'); }
-        if (input.rightPressed) { this.pos -= this.pullPower; playSound('hit'); }
-        this.pos += this.aiStrength * 0.01 * sm;
-        this.pos = Math.max(0, Math.min(1, this.pos));
-        if (this.pos <= 0) { this.score += 100 * this.level; playSound('score'); this.level++; this.aiStrength = 0.3 + this.level * 0.05; this.pos = 0.5; }
-        if (this.pos >= 1) this.gameOver = true;
-    }
-    draw() {
-        ctx.fillStyle = '#1a3a1a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#8B4513'; ctx.fillRect(50, canvas.height / 2 - 5, canvas.width - 100, 10);
-        const flagX = 50 + (canvas.width - 100) * this.pos;
-        ctx.fillStyle = '#ffff00'; ctx.beginPath(); ctx.arc(flagX, canvas.height / 2, 15, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#ff0066'; ctx.fillRect(30, canvas.height / 2 - 40, 40, 80);
-        ctx.fillStyle = '#00ffff'; ctx.fillRect(canvas.width - 70, canvas.height / 2 - 40, 40, 80);
-        ctx.fillStyle = '#fff'; ctx.font = '16px "Press Start 2P"'; ctx.textAlign = 'center';
-        ctx.fillText('MASH BUTTONS!', canvas.width / 2, 50);
-        ctx.fillStyle = '#ff0066'; ctx.fillRect(canvas.width / 2 - 5, canvas.height / 2 - 60, 10, 120);
     }
 }
