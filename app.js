@@ -920,7 +920,10 @@ class Snake {
         if (this.timer >= this.interval) {
             this.timer = 0; const h = { ...this.snake[0] };
             if (this.dir === 0) h.x += 20; else if (this.dir === 1) h.y += 20; else if (this.dir === 2) h.x -= 20; else h.y -= 20;
-            if (h.x < 0 || h.x >= canvas.width || h.y < 0 || h.y >= canvas.height || this.snake.some(s => s.x === h.x && s.y === h.y)) { this.gameOver = true; return; }
+            const growing = h.x === this.food.x && h.y === this.food.y;
+            // The last cell is vacated on this same move unless food is eaten.
+            const body = growing ? this.snake : this.snake.slice(0, -1);
+            if (h.x < 0 || h.x >= canvas.width || h.y < 0 || h.y >= canvas.height || body.some(s => s.x === h.x && s.y === h.y)) { this.gameOver = true; return; }
             this.snake.unshift(h);
             if (h.x === this.food.x && h.y === this.food.y) { this.score += 10; playSound('score'); this.food = this.spawn();
                 if (this.score % 50 === 0) { this.level++; this.interval = Math.max(50, this.interval - 10); }
@@ -963,11 +966,14 @@ class Breakout {
             if (input.left && this.paddle.x > this.paddle.w / 2) this.paddle.x -= this.paddle.speed * sm;
             if (input.right && this.paddle.x < canvas.width - this.paddle.w / 2) this.paddle.x += this.paddle.speed * sm;
         }
+        const previousY = this.ball.y;
         this.ball.x += this.ball.dx * sm; this.ball.y += this.ball.dy * sm;
         if (this.ball.x <= this.ball.r || this.ball.x >= canvas.width - this.ball.r) { this.ball.dx *= -1; playSound('hit'); }
         if (this.ball.y <= this.ball.r) { this.ball.dy *= -1; playSound('hit'); }
         if (this.ball.y >= canvas.height) { this.gameOver = true; return; }
-        if (this.ball.y + this.ball.r >= this.paddle.y - this.paddle.h / 2 && this.ball.x >= this.paddle.x - this.paddle.w / 2 && this.ball.x <= this.paddle.x + this.paddle.w / 2) {
+        const paddleTop = this.paddle.y - this.paddle.h / 2;
+        if (this.ball.dy > 0 && previousY + this.ball.r <= paddleTop && this.ball.y + this.ball.r >= paddleTop && this.ball.x >= this.paddle.x - this.paddle.w / 2 && this.ball.x <= this.paddle.x + this.paddle.w / 2) {
+            this.ball.y = paddleTop - this.ball.r;
             this.ball.dx = (this.ball.x - this.paddle.x) / (this.paddle.w / 2) * 6; this.ball.dy = -Math.abs(this.ball.dy); playSound('hit');
         }
         for (let i = this.bricks.length - 1; i >= 0; i--) { const b = this.bricks[i];
@@ -1020,10 +1026,22 @@ class BubbleShooter {
         if (!this.bubbles.length) { this.level++; playSound('score'); this.createBubbles(); }
     }
     attach() {
-        const r = Math.round((this.flying.y - 20 - this.r) / (this.r * 1.7)), off = r % 2 ? this.r : 0;
-        const c = Math.round((this.flying.x - this.r - off) / (this.r * 2));
-        const x = c * this.r * 2 + this.r + off, y = Math.max(r * this.r * 1.7 + this.r + 20, this.r + 20);
-        const nb = { x, y, color: this.flying.color }; this.bubbles.push(nb);
+        // Snap to the closest FREE hex cell, not the occupied cell we hit.
+        // Enumerating only whole cells also keeps wall shots inside the table.
+        const top = this.r + 20, spacing = this.r * 1.7;
+        const rows = Math.ceil((this.shooter.y - top) / spacing);
+        let cell = null, distance = Infinity;
+        for (let row = 0; row <= rows; row++) {
+            const off = row % 2 ? this.r : 0, y = top + row * spacing;
+            for (let x = this.r + off; x + this.r <= canvas.width; x += this.r * 2) {
+                if (this.bubbles.some(b => Math.abs(b.x - x) < .1 && Math.abs(b.y - y) < .1)) continue;
+                if (row && !this.bubbles.some(b => Math.hypot(b.x - x, b.y - y) < this.r * 2.2)) continue;
+                const d = Math.hypot(this.flying.x - x, this.flying.y - y);
+                if (d < distance) { distance = d; cell = { x, y }; }
+            }
+        }
+        if (!cell) { this.flying = null; this.gameOver = true; return; }
+        const nb = { ...cell, color: this.flying.color }; this.bubbles.push(nb);
         const matches = this.findMatches(nb);
         if (matches.length >= 3) { matches.forEach(m => { const i = this.bubbles.indexOf(m); if (i > -1) this.bubbles.splice(i, 1); });
             this.score += matches.length * 10; playSound('score'); }
@@ -1133,7 +1151,8 @@ class Pong {
     init() {
         this.score = 0; this.level = 1; this.gameOver = false;
         this.player = { y: canvas.height / 2, h: 80, speed: 6, dir: 1 };
-        this.ai = { y: canvas.height / 2, h: 80, speed: 3 + this.level };
+        // Keep the opponent slower than a well-angled return at every level.
+        this.ai = { y: canvas.height / 2, h: 80, speed: Math.min(3.5, 2.2 + this.level * 0.15) };
         this.ball = { x: canvas.width / 2, y: canvas.height / 2, r: 10, dx: 5, dy: 3 };
         this.pw = 15; this.aiScore = 0;
     }
@@ -1151,16 +1170,20 @@ class Pong {
         }
         if (this.ball.y < this.ai.y) this.ai.y -= this.ai.speed * sm; else if (this.ball.y > this.ai.y) this.ai.y += this.ai.speed * sm;
         this.ai.y = Math.max(this.ai.h / 2, Math.min(canvas.height - this.ai.h / 2, this.ai.y));
+        const previousX = this.ball.x;
         this.ball.x += this.ball.dx * sm; this.ball.y += this.ball.dy * sm;
-        if (this.ball.y <= this.ball.r || this.ball.y >= canvas.height - this.ball.r) { this.ball.dy *= -1; playSound('hit'); }
-        if (this.ball.x <= 30 + this.ball.r && Math.abs(this.ball.y - this.player.y) < this.player.h / 2) {
+        if (this.ball.y <= this.ball.r) { this.ball.y = this.ball.r; this.ball.dy = Math.abs(this.ball.dy); playSound('hit'); }
+        if (this.ball.y >= canvas.height - this.ball.r) { this.ball.y = canvas.height - this.ball.r; this.ball.dy = -Math.abs(this.ball.dy); playSound('hit'); }
+        if (this.ball.dx < 0 && previousX - this.ball.r >= 30 && this.ball.x - this.ball.r <= 30 && Math.abs(this.ball.y - this.player.y) < this.player.h / 2) {
+            this.ball.x = 30 + this.ball.r;
             this.ball.dx = Math.abs(this.ball.dx); this.ball.dy = (this.ball.y - this.player.y) / (this.player.h / 2) * 5; playSound('hit');
         }
-        if (this.ball.x >= canvas.width - 30 - this.ball.r && Math.abs(this.ball.y - this.ai.y) < this.ai.h / 2) {
+        if (this.ball.dx > 0 && previousX + this.ball.r <= canvas.width - 30 && this.ball.x + this.ball.r >= canvas.width - 30 && Math.abs(this.ball.y - this.ai.y) < this.ai.h / 2) {
+            this.ball.x = canvas.width - 30 - this.ball.r;
             this.ball.dx = -Math.abs(this.ball.dx); this.ball.dy = (this.ball.y - this.ai.y) / (this.ai.h / 2) * 5; playSound('hit');
         }
         if (this.ball.x < 0) { this.aiScore++; if (this.aiScore >= 5) this.gameOver = true; this.resetBall(); }
-        if (this.ball.x > canvas.width) { this.score += 10; playSound('score'); if (this.score % 50 === 0) { this.level++; this.ai.speed++; } this.resetBall(); }
+        if (this.ball.x > canvas.width) { this.score += 10; playSound('score'); if (this.score % 50 === 0) { this.level++; this.ai.speed = Math.min(3.5, 2.2 + this.level * 0.15); } this.resetBall(); }
     }
     resetBall() { this.ball = { x: canvas.width / 2, y: canvas.height / 2, r: 10, dx: 5 * (Math.random() > 0.5 ? 1 : -1), dy: (Math.random() - 0.5) * 6 }; }
     draw() {
@@ -1714,6 +1737,7 @@ class Simon {
     }
     addToSequence() {
         this.sequence.push(Math.random() > 0.5 ? 0 : 1);
+        this.level = this.sequence.length;
         this.playerSeq = []; this.showingSeq = true; this.showIndex = 0; this.showTimer = 0; this.inputEnabled = false;
     }
     update(sm) {
@@ -2111,7 +2135,8 @@ class Penalty {
         } else {
             this.ball.y += this.ball.vy * sm;
             this.ball.x += (this.ball.targetX - this.ball.x) * 0.1 * sm;
-            this.keeper.x += (this.ball.targetX - this.keeper.x) * 0.025 * sm * this.keeper.speed;
+            // Later rounds must still leave a well-placed shot time to pass.
+            this.keeper.x += (this.ball.targetX - this.keeper.x) * Math.min(0.05, 0.02 * this.keeper.speed) * sm;
             if (this.ball.y <= this.goalY + this.goalH) {
                 const saved = Math.abs(this.ball.x - this.keeper.x) < 40;
                 if (saved) { this.misses++; playSound('low'); if (this.misses >= 3) this.gameOver = true; }
@@ -2146,10 +2171,10 @@ class Penalty {
 class Pinball {
     constructor() { this.score = 0; this.level = 1; this.gameOver = false; this.switchMode = 2; }
     init() {
-        this.score = 0; this.level = 1; this.gameOver = false;
+        this.score = 0; this.level = 1; this.gameOver = false; this.levelStartScore = 0;
         this.ball = { x: canvas.width / 2, y: canvas.height / 2, vx: 3, vy: -5, r: 10 };
         this.leftFlipper = { angle: 0.3, active: false };
-        this.rightFlipper = { angle: -0.3, active: false };
+        this.rightFlipper = { angle: 0.3, active: false };
         this.flipperLen = (canvas.width / 2 - 40) / (2 * Math.cos(0.3)); this.flipperY = canvas.height - 80;
         this.guides = [
             [canvas.width * 0.12, canvas.height * 0.5, canvas.width * 0.25, this.flipperY - 5],
@@ -2167,8 +2192,14 @@ class Pinball {
             { x: canvas.width * 0.25, y: canvas.height * 0.5, r: 20, points: 50 },
             { x: canvas.width * 0.75, y: canvas.height * 0.5, r: 20, points: 50 },
         ];
-        for (let i = 0; i < this.level; i++) {
-            this.bumpers.push({ x: Math.random() * (canvas.width - 100) + 50, y: Math.random() * (canvas.height * 0.4) + 50, r: 15 + Math.random() * 15, points: 75 });
+        // Keep clear routes through the table instead of filling it every level.
+        for (let i = 0; i < Math.min(4, this.level); i++) {
+            for (let attempt = 0; attempt < 50; attempt++) {
+                const b = { x: Math.random() * (canvas.width - 100) + 50, y: Math.random() * (canvas.height * 0.4) + 50, r: 15 + Math.random() * 15, points: 75 };
+                if (this.bumpers.some(o => Math.hypot(o.x-b.x,o.y-b.y) < o.r+b.r+12)) continue;
+                if (Math.hypot(this.ball.x-b.x,this.ball.y-b.y) < this.ball.r+b.r+15) continue;
+                this.bumpers.push(b); break;
+            }
         }
     }
     update(sm) {
@@ -2176,7 +2207,7 @@ class Pinball {
         this.rightFlipper.active = input.right || (this.switchMode === 1 && input.left);
         
         const targetL = this.leftFlipper.active ? -0.5 : 0.3;
-        const targetR = this.rightFlipper.active ? 0.5 : -0.3;
+        const targetR = this.rightFlipper.active ? -0.5 : 0.3;
         this.leftFlipper.angle += (targetL - this.leftFlipper.angle) * 0.3 * sm;
         this.rightFlipper.angle += (targetR - this.rightFlipper.angle) * 0.3 * sm;
         
@@ -2218,7 +2249,9 @@ class Pinball {
             if (b.hit > 0) b.hit -= sm;
         });
         
-        if (this.score >= this.level * 1000) { this.level++; this.createBumpers(); playSound('score'); }
+        if (this.score - this.levelStartScore >= this.level * 1000) {
+            this.levelStartScore = this.score; this.level++; this.createBumpers(); playSound('score');
+        }
     }
     checkGuideCollision([x1, y1, x2, y2]) {
         const dx = x2 - x1, dy = y2 - y1;
@@ -2239,9 +2272,10 @@ class Pinball {
         const closestX = fx + t * dx, closestY = fy + t * dy;
         const distSq = (this.ball.x - closestX) ** 2 + (this.ball.y - closestY) ** 2;
         if (distSq < (this.ball.r + 8) ** 2 && this.ball.vy > 0) {
-            const flipperSpeed = (this.leftFlipper.active || this.rightFlipper.active) ? 15 : 5;
+            const active = dir === 1 ? this.leftFlipper.active : this.rightFlipper.active;
+            const flipperSpeed = active ? 15 : 5;
             this.ball.vy = -flipperSpeed;
-            this.ball.vx += angle * 10 * dir;
+            this.ball.vx = dir * (active ? 2 + t * 3 : 1);
             playSound('hit');
         }
     }
@@ -2420,7 +2454,7 @@ class BrickBuilder {
 class SpaceDodge {
     constructor() { this.score = 0; this.level = 1; this.gameOver = false; this.switchMode = 2; }
     init() {
-        this.score = 0; this.level = 1; this.gameOver = false;
+        this.score = 0; this.level = 1; this.gameOver = false; this.scoreCarry = 0;
         this.ship = { x: canvas.width / 2, y: canvas.height - 80, w: 30, h: 40, dir: 1 };
         this.asteroids = [];
         this.powerups = [];
@@ -2478,7 +2512,10 @@ class SpaceDodge {
             return p.y < canvas.height + 30;
         });
         
-        this.score += Math.floor(sm);
+        // Retain fractional progress at accessible speeds below 1x.
+        this.scoreCarry += sm;
+        const survivalPoints = Math.floor(this.scoreCarry + 1e-9);
+        this.score += survivalPoints; this.scoreCarry -= survivalPoints;
         if (this.score > this.level * 500) { this.level++; playSound('score'); }
     }
     draw() {
@@ -2973,7 +3010,8 @@ function updateAccessibleGameState() {
     if(currentGameType==='whack')message=g.moles.map((m,i)=>m.up?ui(i===0?'left':'right'):'').filter(Boolean).join(' ');
     if(currentGameType==='fruit')message=[0,1].filter(side=>g.fruits.some(f=>!f.sliced&&f.side===side&&f.y<canvas.height-50)).map(side=>ui(side===0?'left':'right')).join(' ');
     $('game-cue').textContent=message;
-    if(message&&message!==lastGameStatus){announce(message,true);lastGameStatus=message;}
+    // Clear an expired cue too, so a new target on the same side is announced.
+    if(message!==lastGameStatus){announce(message,!!message);lastGameStatus=message;}
     if(simulationTime-lastGameAnnouncement>5000){$('game-status').textContent=getTranslation('score')+': '+g.score+'. '+getTranslation('level')+': '+g.level;lastGameAnnouncement=simulationTime;}
 }
 function setupEventListeners() {

@@ -1,5 +1,5 @@
 // Atomic app-shell installation; failed requests never poison the offline cache.
-const CACHE = 'switch-games-890261f9dd8b978c';
+const CACHE = 'switch-games-26421496db216654';
 const SHELL = ['./','./index.html','./style.css','./app.js','./manifest.webmanifest','./app-icon.svg','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL))));
 // Leave a waiting worker until the existing game's tabs have closed. Never swap

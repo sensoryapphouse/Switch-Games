@@ -61,6 +61,7 @@ class Simon {
     }
     addToSequence() {
         this.sequence.push(Math.random() > 0.5 ? 0 : 1);
+        this.level = this.sequence.length;
         this.playerSeq = []; this.showingSeq = true; this.showIndex = 0; this.showTimer = 0; this.inputEnabled = false;
     }
     update(sm) {
@@ -458,7 +459,8 @@ class Penalty {
         } else {
             this.ball.y += this.ball.vy * sm;
             this.ball.x += (this.ball.targetX - this.ball.x) * 0.1 * sm;
-            this.keeper.x += (this.ball.targetX - this.keeper.x) * 0.025 * sm * this.keeper.speed;
+            // Later rounds must still leave a well-placed shot time to pass.
+            this.keeper.x += (this.ball.targetX - this.keeper.x) * Math.min(0.05, 0.02 * this.keeper.speed) * sm;
             if (this.ball.y <= this.goalY + this.goalH) {
                 const saved = Math.abs(this.ball.x - this.keeper.x) < 40;
                 if (saved) { this.misses++; playSound('low'); if (this.misses >= 3) this.gameOver = true; }

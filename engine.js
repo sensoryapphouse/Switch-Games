@@ -317,7 +317,8 @@ function updateAccessibleGameState() {
     if(currentGameType==='whack')message=g.moles.map((m,i)=>m.up?ui(i===0?'left':'right'):'').filter(Boolean).join(' ');
     if(currentGameType==='fruit')message=[0,1].filter(side=>g.fruits.some(f=>!f.sliced&&f.side===side&&f.y<canvas.height-50)).map(side=>ui(side===0?'left':'right')).join(' ');
     $('game-cue').textContent=message;
-    if(message&&message!==lastGameStatus){announce(message,true);lastGameStatus=message;}
+    // Clear an expired cue too, so a new target on the same side is announced.
+    if(message!==lastGameStatus){announce(message,!!message);lastGameStatus=message;}
     if(simulationTime-lastGameAnnouncement>5000){$('game-status').textContent=getTranslation('score')+': '+g.score+'. '+getTranslation('level')+': '+g.level;lastGameAnnouncement=simulationTime;}
 }
 function setupEventListeners() {

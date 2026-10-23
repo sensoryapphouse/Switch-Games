@@ -2,10 +2,10 @@
 class Pinball {
     constructor() { this.score = 0; this.level = 1; this.gameOver = false; this.switchMode = 2; }
     init() {
-        this.score = 0; this.level = 1; this.gameOver = false;
+        this.score = 0; this.level = 1; this.gameOver = false; this.levelStartScore = 0;
         this.ball = { x: canvas.width / 2, y: canvas.height / 2, vx: 3, vy: -5, r: 10 };
         this.leftFlipper = { angle: 0.3, active: false };
-        this.rightFlipper = { angle: -0.3, active: false };
+        this.rightFlipper = { angle: 0.3, active: false };
         this.flipperLen = (canvas.width / 2 - 40) / (2 * Math.cos(0.3)); this.flipperY = canvas.height - 80;
         this.guides = [
             [canvas.width * 0.12, canvas.height * 0.5, canvas.width * 0.25, this.flipperY - 5],
@@ -23,8 +23,14 @@ class Pinball {
             { x: canvas.width * 0.25, y: canvas.height * 0.5, r: 20, points: 50 },
             { x: canvas.width * 0.75, y: canvas.height * 0.5, r: 20, points: 50 },
         ];
-        for (let i = 0; i < this.level; i++) {
-            this.bumpers.push({ x: Math.random() * (canvas.width - 100) + 50, y: Math.random() * (canvas.height * 0.4) + 50, r: 15 + Math.random() * 15, points: 75 });
+        // Keep clear routes through the table instead of filling it every level.
+        for (let i = 0; i < Math.min(4, this.level); i++) {
+            for (let attempt = 0; attempt < 50; attempt++) {
+                const b = { x: Math.random() * (canvas.width - 100) + 50, y: Math.random() * (canvas.height * 0.4) + 50, r: 15 + Math.random() * 15, points: 75 };
+                if (this.bumpers.some(o => Math.hypot(o.x-b.x,o.y-b.y) < o.r+b.r+12)) continue;
+                if (Math.hypot(this.ball.x-b.x,this.ball.y-b.y) < this.ball.r+b.r+15) continue;
+                this.bumpers.push(b); break;
+            }
         }
     }
     update(sm) {
@@ -32,7 +38,7 @@ class Pinball {
         this.rightFlipper.active = input.right || (this.switchMode === 1 && input.left);
         
         const targetL = this.leftFlipper.active ? -0.5 : 0.3;
-        const targetR = this.rightFlipper.active ? 0.5 : -0.3;
+        const targetR = this.rightFlipper.active ? -0.5 : 0.3;
         this.leftFlipper.angle += (targetL - this.leftFlipper.angle) * 0.3 * sm;
         this.rightFlipper.angle += (targetR - this.rightFlipper.angle) * 0.3 * sm;
         
@@ -74,7 +80,9 @@ class Pinball {
             if (b.hit > 0) b.hit -= sm;
         });
         
-        if (this.score >= this.level * 1000) { this.level++; this.createBumpers(); playSound('score'); }
+        if (this.score - this.levelStartScore >= this.level * 1000) {
+            this.levelStartScore = this.score; this.level++; this.createBumpers(); playSound('score');
+        }
     }
     checkGuideCollision([x1, y1, x2, y2]) {
         const dx = x2 - x1, dy = y2 - y1;
@@ -95,9 +103,10 @@ class Pinball {
         const closestX = fx + t * dx, closestY = fy + t * dy;
         const distSq = (this.ball.x - closestX) ** 2 + (this.ball.y - closestY) ** 2;
         if (distSq < (this.ball.r + 8) ** 2 && this.ball.vy > 0) {
-            const flipperSpeed = (this.leftFlipper.active || this.rightFlipper.active) ? 15 : 5;
+            const active = dir === 1 ? this.leftFlipper.active : this.rightFlipper.active;
+            const flipperSpeed = active ? 15 : 5;
             this.ball.vy = -flipperSpeed;
-            this.ball.vx += angle * 10 * dir;
+            this.ball.vx = dir * (active ? 2 + t * 3 : 1);
             playSound('hit');
         }
     }
@@ -276,7 +285,7 @@ class BrickBuilder {
 class SpaceDodge {
     constructor() { this.score = 0; this.level = 1; this.gameOver = false; this.switchMode = 2; }
     init() {
-        this.score = 0; this.level = 1; this.gameOver = false;
+        this.score = 0; this.level = 1; this.gameOver = false; this.scoreCarry = 0;
         this.ship = { x: canvas.width / 2, y: canvas.height - 80, w: 30, h: 40, dir: 1 };
         this.asteroids = [];
         this.powerups = [];
@@ -334,7 +343,10 @@ class SpaceDodge {
             return p.y < canvas.height + 30;
         });
         
-        this.score += Math.floor(sm);
+        // Retain fractional progress at accessible speeds below 1x.
+        this.scoreCarry += sm;
+        const survivalPoints = Math.floor(this.scoreCarry + 1e-9);
+        this.score += survivalPoints; this.scoreCarry -= survivalPoints;
         if (this.score > this.level * 500) { this.level++; playSound('score'); }
     }
     draw() {

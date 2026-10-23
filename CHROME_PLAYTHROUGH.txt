@@ -1,0 +1,187 @@
+SWITCH GAMES — CHROME DEVTOOLS PLAY-THROUGH
+Run date: 20 October 2026, America/Chicago (reports use UTC timestamps)
+
+METHOD AND SCOPE
+
+Installed Google Chrome 156.0.8078.48 on macOS, headless, controlled through
+the Chrome DevTools Protocol. This was automated closed-loop play, not a
+human manually operating the DevTools UI. The test player read live state
+and sent trusted keyboard events. Gameplay used the real animation loop;
+ordinary play did not award points, disable collisions or move game objects.
+
+All 25 games were exercised in both switch modes, with ordinary level-1
+starts and separate level-2/3 diagnostic starts: 150 initial configurations.
+Ordinary runs requested 30 seconds; diagnostic runs requested 15 seconds.
+Natural game-over ended a phase early. Further focused retests used longer
+runs, and Tetris received 180 seconds of ordinary play in each mode.
+
+Later-level fixtures explicitly seeded level-dependent state; they were NOT
+earned progression. Physics/collision, scoring and line-clear probes also
+seeded particular edge cases. Each report labels those phases. No claim is
+made that the player won every game or earned every level.
+
+SOUND
+
+Sound effects and spoken names were disabled in an isolated profile before
+the app loaded. Chrome additionally ran with --mute-audio. Gameplay samples
+monitored both settings and AudioContext construction. No sound-policy
+violation was observed. Live-region DOM cues were tested without enabling
+speech, sound or a screen reader.
+
+SETTINGS AND EVIDENCE
+
+- Speed 5, practice off, step scanning. Hold-to-pause disabled for ordinary
+  gameplay so continuous thrust/advance/flipper holds were possible.
+- A separate probe enabled and verified hold-to-pause, including input clear.
+- 1280x900 gameplay viewport. Additional 375x667 and 667x375 layouts, large
+  text and Arabic RTL settings were checked through Chrome and screenshots.
+- Return via Escape/Home preserved page and focus; P froze/resumed simulation.
+  Touch press/release, step scanning and dialog Tab wrapping were exercised.
+- Reports record browser version, app.js SHA-256, phases, simulation time,
+  screenshots, scores, levels, inputs, runtime exceptions and network failures.
+- A natural defeat was recorded as such. Where a game survived, the test set
+  gameOver only AFTER play to exercise restart/pause/menu UI; this is explicitly
+  labelled forcedEndForNavigationOnly, never counted as a natural defeat.
+- A technical case pass means valid sampled state and working lifecycle UI,
+  not that the game was won or its difficulty certified. Screenshot review
+  found Pinball's runaway progression despite its initial technical pass.
+
+BUGS FIXED AND RETESTED
+
+1. Pinball: right flipper moved down when pressed. Both flippers now lift.
+2. Pinball: holding the other switch powered an inactive flipper. Bounce power
+   now comes only from the flipper actually contacted; rebounds aim inward.
+3. Breakout: a ball already below the paddle could be saved from underneath.
+   A downward crossing of the paddle's top face is now required.
+4. Snake: entering the tail cell on the move that vacated it caused a loss.
+   Collision checks now exclude that cell unless the snake is growing.
+5. Simon: displayed level lagged the current sequence. It now updates when
+   the next sequence is created.
+6. Pong: missed balls could be returned from behind the paddles. Collision
+   now requires an approaching ball crossing the paddle face, once.
+7. Bubble Shooter: attachment could reuse occupied cells or extend a bubble
+   past a side wall. It now chooses a free, connected, in-bounds hex cell.
+8. Pong: later-level AI could match/exceed every possible vertical return.
+   Tracking speed is now capped; Chrome verified level-3 shots can score.
+9. Space Dodge: Math.floor(sm) awarded no survival points at slower speeds.
+   Fractional progress is retained. Speed-1 scoring now works in both modes.
+10. Repeated target cues: a second mole on the same side was not announced
+    after an empty interval. Expired cues now clear, allowing a fresh cue.
+11. Penalty Kick: later-level tracking made even a best-placed shot unscorable.
+    Goalkeeper reaction is now bounded. A level-10 shot scored in both modes.
+12. Pinball: score thresholds caused repeated level-ups, and unlimited random
+    overlapping bumpers eventually filled the table. Each level now requires
+    fresh points; bumpers are limited and placed without overlap.
+
+Each fix has an automated regression test; targeted Chrome probes and game
+retests accompany the source changes. The static app bundle and offline-cache
+version were rebuilt. The local Node suite passes 51 tests.
+
+REPORT LOCATIONS
+
+test-results/chrome/full/mode-1/report.json
+test-results/chrome/full/mode-2/report.json
+  Initial 150-configuration matrix; includes bugs discovered during review.
+test-results/chrome/retest/mode-N/report.json
+  Repaired Bubble Shooter/Pong: 60-second ordinary, 20-second diagnostic runs.
+test-results/chrome/cue-after/mode-N/report.json
+  Repaired game cues and slow scoring: Simon/Whack/Fruit/Space Dodge.
+test-results/chrome/endurance/mode-N/report.json
+  180-second ordinary Tetris play. An early mode-2 line-clear probe had an
+  insufficient fixed wait under load; it was rerun using condition-based waits.
+test-results/chrome/fixture-retest/mode-N/report.json
+  Corrected later-level setup for Snake, Breakout, Lander and Stack; all targeted
+  UI/collision/cue/slow-score/line-clear checks rerun. Line-clear passed in both.
+test-results/chrome/scoring-retest/mode-N/report.json
+  Air Hockey strategy, repaired Penalty and repaired Pinball longer retests.
+test-results/chrome/final-smoke/mode-N/report.json
+  First final-build short regression. Its resume probe used a fixed 100ms
+  wait that expired before a rendered frame under load; no game case failed.
+test-results/chrome/final-verified/mode-N/report.json
+  Repeated final-build all-games regression with condition-based resume wait,
+  plus UI/accessibility/scoring probes.
+
+N is 1 or 2. PNG evidence is alongside each JSON file. Earlier *-before and
+intermediate reports retain reproductions, including expected failures.
+Generated evidence is local and gitignored; source runner/controllers and
+this summary are kept in the repository. See TESTING.txt for rerun commands.
+
+LIMITATIONS / RELEASE FOLLOW-UP
+
+- Automated play has imperfect timing and strategy. Early losses are not
+  automatically game bugs; seeded levels are not evidence of earned wins.
+- One-switch Tetris survived the longer run but did not clear a line; the
+  two-switch player did. Diagnostic four-line clears verified scoring and
+  level transition in both modes. Human one-switch playability remains a
+  particularly useful acceptance test.
+- Many faster games reached later levels naturally; other games were tested
+  at later levels only with diagnostic fixtures. See the coverage matrix below.
+- This is not physical switch-adapter/gamepad testing, iOS Safari testing,
+  Android-device testing, screen-reader listening or native-speaker review.
+- Service workers were bypassed to avoid stale test builds. Offline/install
+  and upgrade lifecycle testing is separate from this gameplay run.
+- Comfort, fatigue, suitable pacing and independent play need testing with
+  intended one-/two-switch users. No automated pass substitutes for that.
+
+ORDINARY-PLAY COVERAGE MATRIX
+
+Each cell is maximum level / maximum score / elapsed wall seconds in the
+selected ordinary run. "loss" means natural game-over, not a technical failure.
+These are representative runs, not best-ever results or completion claims.
+Normal game time is recorded separately in each JSON snapshot; renderer load
+can make wall time differ. Every game also had level-2/3 diagnostic runs in
+both modes; short losses mean those configurations were exercised, not won.
+
+Game              One switch                  Two switches
+Space Invaders    L1 / 110 / 12.0s loss         L1 / 80 / 22.4s loss
+Snake             L2 / 50 / 30.0s              L2 / 70 / 30.0s
+Breakout          L1 / 10 / 3.3s loss           L1 / 100 / 30.0s
+Bubble Shooter    L1 / 430 / 60.1s              L1 / 430 / 60.0s
+Tetris            L1 / 0 / 180.1s               L1 / 200 / 180.0s
+Pong              L1 / 40 / 42.2s loss          L2 / 70 / 31.4s loss
+Flappy Bird       L4 / 160 / 30.0s              L4 / 160 / 30.1s
+Dino              L4 / 1794 / 30.0s             L4 / 1794 / 30.0s
+Helicopter        L1 / 472 / 8.0s loss          L2 / 869 / 14.6s loss
+Rhythm            L12 / 2240 / 30.0s            L10 / 1900 / 30.1s
+Tank Battle       L3 / 290 / 30.1s              L3 / 290 / 30.0s
+Asteroids         L1 / 249 / 10.3s loss         L2 / 884 / 30.0s
+Skiing            L2 / 10 / 6.6s loss           L3 / 60 / 11.9s loss
+Balance           L6 / 287 / 30.0s              L6 / 287 / 30.1s
+Simon             L3 / 60 / 20.0s               L4 / 60 / 20.1s
+Whack-a-Mole      L4 / 540 / 20.0s              L4 / 540 / 20.0s
+Air Hockey        L1 / 10 / 60.1s               L1 / 20 / 60.0s
+Lunar Lander      L3 / 300 / 30.1s              L3 / 300 / 30.1s
+Fruit             L9 / 840 / 20.0s              L4 / 500 / 20.1s
+Stack Tower       L5 / 2191 / 30.1s             L4 / 1796 / 30.0s
+Penalty Kick      L6 / 810 / 60.0s              L6 / 870 / 60.1s
+Pinball           L5 / 13375 / 34.0s loss       L6 / 17225 / 36.2s loss
+Brick Builder     L1 / 400 / 30.0s              L1 / 100 / 30.0s
+Space Dodge       L1 / 418 / 7.1s loss          L3 / 1197 / 20.1s
+Wire Loop         L9 / 8841 / 30.0s             L9 / 8829 / 30.0s
+
+Matrix source selection: full except Bubble Shooter/Pong (retest), Tetris
+(endurance), Simon/Whack/Fruit/Space Dodge (cue-after), and Air Hockey/Penalty/
+Pinball (scoring-retest). Corrected Snake/Breakout/Lander/Stack diagnostic
+setup was retested in fixture-retest. Earlier Pinball runaway levels are
+deliberately excluded: they were a bug, not successful progression.
+
+Final app.js SHA-256:
+e541b6dc664225710ddd87d8a73cab377b010ac056ad33f120cec4af396cf11c
+
+FINAL VERIFICATION RESULT
+
+Both final-verified reports completed: 25/25 game cases and all included probes
+passed in each mode. Both used the final bundle hash above. No uncaught
+JavaScript exceptions or failed network loads were recorded in those runs.
+The separate scoring-retest reports also completed with all checks passing.
+
+Across full, retest, cue-after, fixture-retest, scoring-retest, endurance and
+final-verified: 272 gameplay phases, 67,359 sampled states, 76.4 aggregate wall
+minutes of play (76.0 simulated minutes). These totals include ordinary play,
+diagnostic fixtures and repeated checks; workers ran in parallel, so they are
+NOT elapsed user waiting time. Pilots and failed before-fix probes are excluded.
+No sound-policy violations or uncaught game exceptions were observed.
+
+Screenshots of all 25 games in both modes were visually reviewed, along with
+responsive/RTL screens and the repaired later-level Pinball layout. Temporary
+Chrome instances and local servers were closed; test evidence is retained.

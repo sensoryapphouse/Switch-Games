@@ -83,6 +83,9 @@ test('one switch slices right-side fruit',()=>{
 test('one switch hits a right-hand mole',()=>{
     const h=harness();assert.equal(h.run("let g=new Whack();g.switchMode=1;g.init();g.moles[1].up=true;g.moles[1].timer=1000;input.leftPressed=true;g.update(1);!g.moles[1].up&&g.score===10"),true);
 });
+test('a repeated same-side target produces a fresh accessibility cue',()=>{
+    const h=harness();assert.equal(h.run("currentGameType='whack';currentGame=new Whack();currentGame.init();let cues=[];announce=text=>cues.push(text);currentGame.moles[0].up=true;updateAccessibleGameState();currentGame.moles[0].up=false;updateAccessibleGameState();currentGame.moles[0].up=true;updateAccessibleGameState();cues.length===3&&cues[0]===ui('left')&&cues[1]===''&&cues[2]===ui('left')"),true);
+});
 test('one-switch Simon can select either scanned answer',()=>{
     const h=harness();assert.equal(h.run("let g=new Simon();g.switchMode=1;g.init();g.sequence=[1];g.showingSeq=false;g.inputEnabled=true;for(let i=0;i<125;i++)g.update(1);input.leftPressed=true;g.update(1);!g.gameOver&&g.score===10"),true);
 });
@@ -100,6 +103,49 @@ test('Pinball drain width stays constant across screen widths',()=>{
 test('Pinball guides reflect an approaching ball using visible geometry',()=>{
     const h=harness();assert.equal(h.run("let g=new Pinball();g.init();let [x1,y1,x2,y2]=g.guides[0];let dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy),nx=-dy/len,ny=dx/len;g.ball.x=(x1+x2)/2+nx*5;g.ball.y=(y1+y2)/2+ny*5;g.ball.vx=-nx;g.ball.vy=-ny;g.checkGuideCollision(g.guides[0]);g.ball.vx*nx+g.ball.vy*ny>0"),true);
 });
+test('both Pinball flippers lift towards the playfield when activated',()=>{
+    const h=harness();assert.equal(h.run("let g=new Pinball();g.init();const left=g.leftFlipper.angle,right=g.rightFlipper.angle;input.left=input.right=true;g.update(1);g.leftFlipper.angle<left&&g.rightFlipper.angle<right"),true);
+});
+test('the other switch cannot power an inactive Pinball flipper',()=>{
+    const h=harness();assert.equal(h.run("let g=new Pinball();g.init();g.leftFlipper.active=true;g.rightFlipper.active=false;const a=g.rightFlipper.angle;g.ball.x=450-Math.cos(a)*g.flipperLen*.5;g.ball.y=g.flipperY+Math.sin(a)*g.flipperLen*.5;g.ball.vy=1;g.checkFlipperCollision(450,g.flipperY,a,-1);g.ball.vy===-5"),true);
+});
+test('Pinball later-level bumpers are bounded and never overlap',()=>{
+    const h=harness();assert.equal(h.run("let g=new Pinball();g.init();let ok=true;for(const level of [1,5,30,400]){g.level=level;g.createBumpers();ok&&=g.bumpers.length<=9&&g.bumpers.every((b,i)=>g.bumpers.slice(i+1).every(o=>Math.hypot(b.x-o.x,b.y-o.y)>=b.r+o.r));}ok"),true);
+});
+test('Pinball requires fresh points instead of repeated free level-ups',()=>{
+    const h=harness();assert.equal(h.run("let g=new Pinball();g.init();g.bumpers=[];g.level=10;g.score=g.levelStartScore=10000;g.update(1);g.level===10"),true);
+});
+test('a well-placed high-level penalty remains scoreable',()=>{
+    const h=harness();assert.equal(h.run("let g=new Penalty();g.init();g.level=10;g.keeper={x:420,targetX:420,speed:4};g.preparing=false;g.shooting=true;g.ball={x:300,y:500,targetX:200,vy:-15};for(let i=0;i<22;i++)g.update(1);g.score===100&&g.misses===0"),true);
+});
+test('Breakout cannot rescue a ball already beneath the paddle',()=>{
+    const h=harness();assert.equal(h.run("let g=new Breakout();g.init();g.ball={x:300,y:590,r:8,dx:0,dy:1};g.update(1);g.ball.dy===1"),true);
+});
+test('Snake can enter the tail cell as it is vacated',()=>{
+    const h=harness();assert.equal(h.run("let g=new Snake();g.init();g.snake=[{x:100,y:100},{x:100,y:120},{x:120,y:120},{x:120,y:100}];g.dir=0;g.food={x:400,y:400};g.timer=150;g.update(1);!g.gameOver&&g.snake[0].x===120&&g.snake.length===4"),true);
+});
+test('Simon level matches the sequence currently being shown',()=>{
+    const h=harness();assert.equal(h.run("let g=new Simon();g.init();g.addToSequence();g.level===2&&g.sequence.length===2"),true);
+});
+test('Pong does not return a missed ball from behind either paddle',()=>{
+    for (const [x,dx] of [[10,-5],[590,5]]) {
+        const h=harness();assert.equal(h.run("let g=new Pong();g.init();g.ball={x:"+x+",y:300,r:10,dx:"+dx+",dy:0};g.update(1);g.ball.dx"),dx);
+    }
+});
+test('Pong returns an approaching ball once at the paddle face',()=>{
+    const h=harness();assert.equal(h.run("let g=new Pong();g.init();g.ball={x:42,y:300,r:10,dx:-5,dy:0};g.update(1);let returned=g.ball.dx===5&&g.ball.x===40;g.update(1);returned&&g.ball.dx===5&&g.ball.x===45"),true);
+});
+test('Pong AI remains beatable as levels increase',()=>{
+    const h=harness();assert.equal(h.run("let g=new Pong();g.init();let gentle=g.ai.speed<3;g.level=30;g.score=1490;g.ball={x:610,y:100,r:10,dx:5,dy:0};g.update(1);gentle&&g.level===31&&g.ai.speed===3.5"),true);
+});
+test('Bubble Shooter chooses a free cell after hitting an occupied cell',()=>{
+    const h=harness();assert.equal(h.run("let g=new BubbleShooter();g.init();g.bubbles=[{x:18,y:38,color:g.colors[0]}];g.flying={x:18,y:38,color:g.colors[1]};g.attach();g.bubbles.length===2&&new Set(g.bubbles.map(b=>b.x+','+b.y)).size===2"),true);
+});
+test('Bubble Shooter side-wall attachments stay wholly inside the board',()=>{
+    for (const x of [0,600]) {
+        const h=harness();assert.equal(h.run("let g=new BubbleShooter();g.init();g.flying={x:"+x+",y:160,color:g.colors[0]};g.attach();g.bubbles.every(b=>b.x>=g.r&&b.x+g.r<=canvas.width)"),true);
+    }
+});
 test('Air Hockey non-goal walls bounce instead of teleporting',()=>{
     const h=harness();assert.equal(h.run("let g=new AirHockey();g.init();g.puck={x:16,y:50,r:15,vx:-2.5,vy:0};g.update(1);g.puck.x===15&&g.puck.vx>0&&g.aiScore===0"),true);
 });
@@ -108,6 +154,9 @@ test('Dino standing hits a bird; ducking passes underneath',()=>{
 });
 test('Wire Loop retains completed-level score',()=>{
     const h=harness();assert.equal(h.run("let g=new WireLoop();g.init();g.ringPos=.999;input.right=true;g.update(1);input.right=false;g.update(1);g.score===1000"),true);
+});
+test('Space Dodge retains fractional survival points at slow speeds',()=>{
+    const h=harness();assert.equal(h.run("let g=new SpaceDodge();g.init();for(let i=0;i<100;i++)g.update(.6);g.score===60"),true);
 });
 test('all 25 games update/draw in both switch modes at three logical sizes',()=>{
     for(const [w,hgt]of [[600,600],[375,500],[1000,600]])for(const mode of [1,2]){

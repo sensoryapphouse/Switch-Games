@@ -6,6 +6,36 @@ After source edits: npm run build (npm start also builds automatically).
 The committed app.js bundle lets any static server run the app without a build.
 Tests refuse to pass if the bundle is out of date.
 
+Chrome DevTools play-through (macOS, installed Google Chrome)
+- Build first: npm run build
+- Run one mode at a time to avoid competing Chrome renderers:
+  node scripts/chrome-playthrough.mjs --mode 1 --label release --seconds 60 --diagnostic-seconds 20 --probes --extended-probes --pace-probes --cue-probes --puzzle-probes --penalty-probes
+  node scripts/chrome-playthrough.mjs --mode 2 --label release --seconds 60 --diagnostic-seconds 20 --probes --extended-probes --pace-probes --cue-probes --puzzle-probes --penalty-probes
+- Requires Node with built-in fetch/WebSocket. No browser automation dependency.
+- Uses installed Chrome headlessly, a separate temporary profile and a private
+  localhost server. DevTools connects only to that profile's generated port.
+  It does not attach to or change your normal browser session/preferences.
+- App sound and spoken names are off before loading; Chrome is also muted.
+  Every gameplay sample checks the sound flags and AudioContext count.
+- The closed-loop test player reads live state and sends trusted DevTools
+  keyboard events. Normal play uses the actual animation loop, collisions and
+  scores. Test-player skill is limited: surviving a run is not winning it.
+- Level 2/3 starts are deliberately seeded diagnostic fixtures, NOT levels
+  earned through ordinary play. Collision/line-clear probes seed their own
+  edge cases too. Reports distinguish these from earned progression.
+- Gameplay uses speed 5, practice off, step scanning and hold-to-pause off to
+  permit continuous holds. A separate probe enables/tests hold-to-pause.
+- --games snake,pong filters games; --seconds 0 runs only diagnostic levels;
+  --diagnostic-seconds 0 runs only ordinary play. Labels must be filesystem-safe.
+- Reports, screenshots, exact Chrome version, bundle hash, input counts and
+  simulated time are saved under test-results/chrome/LABEL/mode-N/ (gitignored).
+  Existing reports with the same label/mode are overwritten. Use a new label
+  to keep a run. Profiles remain in the OS temporary directory for diagnosis.
+- The exit code fails on uncaught exceptions, failed probes or technical
+  invariants/navigation checks. A technical pass does not certify difficulty,
+  human usability, every level won, physical adapters or screen-reader speech.
+- CHROME_PLAYTHROUGH.txt records the coverage and limitations of this audit.
+
 Controls
 - Switch 1: ArrowLeft, 1 or 3. Switch 2: ArrowRight, 2 or 4.
 - Native keyboard navigation: Tab / Shift+Tab, Enter / Space on buttons.
