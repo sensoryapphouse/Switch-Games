@@ -1,12 +1,16 @@
 SWITCH GAMES — DEVELOPMENT AND ACCEPTANCE CHECKS
 
+Player controls, settings and game guide: HELP.txt
+
 Run locally: npm start (http://localhost:8080)
 Run regression tests: npm test (Node's built-in runner; no dependencies)
 After source edits: npm run build (npm start also builds automatically).
 The committed app.js bundle lets any static server run the app without a build.
 Tests refuse to pass if the bundle is out of date.
 
-Chrome DevTools play-through (macOS, installed Google Chrome)
+Chrome DevTools play-through (Windows, macOS or Linux, installed Google Chrome)
+- Chrome is detected in standard installation folders. Set CHROME_PATH to the
+  full executable path to use another installation.
 - Build first: npm run build
 - Run one mode at a time to avoid competing Chrome renderers:
   node scripts/chrome-playthrough.mjs --mode 1 --label release --seconds 60 --diagnostic-seconds 20 --probes --extended-probes --pace-probes --cue-probes --puzzle-probes --penalty-probes
@@ -39,11 +43,13 @@ Chrome DevTools play-through (macOS, installed Google Chrome)
 Controls
 - Switch 1: ArrowLeft, 1 or 3. Switch 2: ArrowRight, 2 or 4.
 - Native keyboard navigation: Tab / Shift+Tab, Enter / Space on buttons.
-- One-switch menus: timed scanning, either switch selects the highlight.
-- Two-switch menus: switch 2 advances, switch 1 selects.
+- Automatic scanning: timed highlight, either switch selects.
+- Step scanning: switch 2 advances, switch 1 selects. The global one-/two-switch
+  profile selects automatic/step scanning by default; scanning can be changed separately.
 - Holding either switch for 2.5 seconds opens Pause. Change/disable this
   duration in Settings when a game needs longer continuous holds.
-- P pauses/resumes. Escape or Home returns to the game-selection page.
+- P pauses/resumes. During play, Escape or Home returns to the game list;
+  in instructions/settings/language dialogs it closes or goes back a screen.
 - With scanning off, holding a switch for 2.5 seconds restores automatic
   scanning and opens Settings, so a switch user is not permanently stranded.
 

@@ -27,11 +27,16 @@ const server=http.createServer((req,res)=>{
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const base='http://127.0.0.1:'+server.address().port;
-const chrome=spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',[
+const chromeCandidates=process.platform==='win32'
+    ? [process.env.PROGRAMFILES,process.env['PROGRAMFILES(X86)'],process.env.LOCALAPPDATA].filter(Boolean).map(dir=>path.join(dir,'Google','Chrome','Application','chrome.exe'))
+    : process.platform==='darwin' ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'] : ['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium'];
+const chromePath=process.env.CHROME_PATH||chromeCandidates.find(file=>fs.existsSync(file));
+if(!chromePath||!fs.existsSync(chromePath))throw Error('Chrome not found. Set CHROME_PATH to the Chrome executable.');
+const chrome=spawn(chromePath,[
     '--headless=new','--remote-debugging-address=127.0.0.1','--remote-debugging-port='+port,'--user-data-dir='+profile,
     '--mute-audio','--no-first-run','--no-default-browser-check','--disable-background-timer-throttling',
     '--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding','--window-size=1280,900','about:blank'
-],{stdio:['ignore','ignore',fs.openSync(path.join(out,'chrome.log'),'a')]});
+],{windowsHide:true,stdio:['ignore','ignore',fs.openSync(path.join(out,'chrome.log'),'a')]});
 let ws, sequence=0;const pending=new Map(),exceptions=[],failedRequests=[];
 for(const [signal,code] of [['SIGINT',130],['SIGTERM',143]])process.once(signal,()=>{chrome.kill('SIGTERM');ws?.close();server.close();process.exit(code);});
 const report={browser:null,mode,label,base,profile,bundleSHA256:createHash('sha256').update(fs.readFileSync(path.join(root,'app.js'))).digest('hex'),started:new Date().toISOString(),soundPolicy:'Application sound and spoken names off before load; Chrome --mute-audio; AudioContext creation monitored',
@@ -256,4 +261,6 @@ try{
     if(!report.technicalChecksPassed)process.exitCode=1;save();
     console.log(JSON.stringify({event:'finished',mode,cases:report.cases.length,passed:report.cases.filter(c=>c.passed).length,out}));
 }catch(error){report.fatal=String(error.stack||error);save();console.error(report.fatal);process.exitCode=1;}
-finally{await release().catch(()=>{});ws?.close();chrome.kill('SIGTERM');server.close();}
+finally{await release().catch(()=>{});for(const {timer}of pending.values())clearTimeout(timer);pending.clear();ws?.close();chrome.kill('SIGTERM');server.close();server.closeAllConnections();}
+// Reports are saved synchronously above; Windows may retain DevTools handles.
+process.exit(process.exitCode||0);

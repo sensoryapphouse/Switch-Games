@@ -75,6 +75,10 @@ function getGameName(gameId) {
 
 function getGameInstructions(gameId, mode = 2) {
     const text = translations[currentLanguage]?.instructions?.[gameId] || translations.en?.instructions?.[gameId] || '';
+    // Detailed mode-specific help is optional; retain the localized controls
+    // for dictionaries that have not yet supplied it.
+    const oneSwitch = translations[currentLanguage]?.instructionsOneSwitch?.[gameId];
+    if (oneSwitch) return mode === 1 ? oneSwitch : text;
     if (gameId === 'helicopter' && mode === 2) {
         const lines=text.split('\n'), strip=line=>line?.replace(/^[⬅➡️\s]+/u,'')||'';
         return lines[0]+'\n⬅️➡️ '+strip(lines[1])+'\n○ '+strip(lines[2])+'\n'+(lines[3]||'');

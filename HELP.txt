@@ -1,0 +1,207 @@
+SWITCH GAMES — PLAYER GUIDE
+Updated 24 October 2026
+
+GETTING STARTED
+Choose a game, read its instructions and select Start Game. The instructions
+show the controls for the selected one- or two-switch mode. Use Switches on
+that screen to change this game only, and Slower/Faster to set its speed (1–10).
+The global Switches setting changes the default for all games and clears
+per-game switch-mode overrides. Per-game speed settings are retained.
+
+INPUT AND MENUS
+Switch 1: Left Arrow, number 1 or number 3.
+Switch 2: Right Arrow, number 2 or number 4.
+Touch: use the two large buttons below the playing area; hold or tap as the
+game instructions describe. Tapping elsewhere is not a gameplay switch.
+Keyboard: Tab/Shift+Tab moves focus; Enter/Space activates a focused button.
+Space/Enter away from a button acts as switch 1. On a game control button,
+Space/Enter operates that button. Arrow/number keys remain switch inputs.
+Gamepads: buttons 2/3, D-pad left or left-stick left operate switch 1;
+buttons 0/1, D-pad right or left-stick right operate switch 2. Numbering is
+the browser's Gamepad API numbering; physical labels vary by controller.
+
+Automatic scanning advances the menu highlight on a timer; either switch
+chooses it. Step scanning uses switch 2 for Next and switch 1 to Choose.
+Scanning Off leaves ordinary keyboard, mouse and touch navigation available.
+Pressing Tab suspends scanning until the next switch input.
+The first launch uses one-switch mode and automatic scanning. Choosing the
+global two-switch profile selects step scanning. You can change scanning
+independently. With scanning off and no game running, hold either switch for
+2.5 seconds to restore automatic scanning and open Settings.
+
+PAUSE AND RETURN
+Use Pause, P, or a long switch hold to pause. P toggles pause/resume; Resume
+continues the game. Hold-to-pause defaults to 2.5 seconds; Settings cycles
+through Off, 1.5, 2.5, 4 and 6 seconds. Turn it off or lengthen it for games
+that need continuous thrust, movement or flipper holds.
+Escape/Home closes game instructions, returns from Settings or Language,
+or returns to the game list, depending on the current screen. During play
+it returns to the game list. The Main Menu button does the same.
+Leaving the browser tab or window automatically pauses and clears held input.
+
+SETTINGS
+Scanning speed sets the menu interval (1–10 seconds in the button's choices)
+and Simon's one-switch answer interval. It does not set gameplay speed.
+Repeat filter ignores rapid repeat presses on the same logical switch; it
+does not require a press to be held for a minimum duration.
+Practice recovers from losses while retaining score and level. Some rounds
+or hazards reset; practice scores can still become high scores.
+Sound controls game effects. Spoken names is separate and controls optional
+device-voice announcements of scanned choices and changing game cues.
+For silence, turn BOTH Sound and Spoken names off.
+Large text enlarges interface text. Less motion reduces interface animation
+and record confetti; it does not stop moving gameplay or make it flash-free.
+Language changes the interface and instructions. English game instructions
+have been reviewed for this update; other translations still need review by
+native speakers against the current game controls.
+
+SAVING AND OFFLINE USE
+Settings, language and best scores are saved in this browser when local
+storage is available. If storage is blocked, you can still play, but changes
+may not survive closing the page. Clearing site data removes saved choices.
+On HTTPS or localhost the app caches its files after a successful online
+load. Wait for the initial cache to finish before relying on offline use.
+Updates wait for old game tabs to close before activating; reconnect and
+close/reopen old tabs to load an update. Opening index.html as a local file
+does not provide the same service-worker/offline installation behavior.
+
+GAME CONTROLS
+In one-switch mode either logical switch can perform the single action.
+The per-game instructions below describe current English behavior.
+
+SPACE-INVADERS
+Destroy the aliens. Your ship fires automatically.
+One switch: Your ship moves automatically. Press either switch to reverse direction.
+Two switches: Hold switch 1 to move left; hold switch 2 to move right.
+
+SNAKE
+Eat food to grow. Avoid walls and your own body.
+One switch: Press either switch to turn right relative to the direction the snake is travelling.
+Two switches: Press switch 1 to turn left; press switch 2 to turn right, relative to the snake.
+
+BREAKOUT
+Bounce the ball off your paddle to break the bricks.
+One switch: The paddle moves automatically. Press either switch to reverse direction.
+Two switches: Hold switch 1 to move left; hold switch 2 to move right.
+
+BUBBLE-SHOOTER
+Match at least three bubbles of the same colour. Clear the board before bubbles reach the launcher.
+One switch: The launcher aims automatically. Press either switch to fire when it points where you want.
+Two switches: The launcher aims automatically. Press either switch to fire when it points where you want.
+
+TETRIS
+Fill complete horizontal rows. Pieces fall automatically.
+One switch: The piece moves left and right automatically. Press either switch to rotate it.
+Two switches: Press switch 1 to move left; pressing at the left edge wraps to the right if there is room. Press switch 2 to rotate.
+
+PONG
+Return the ball past the computer paddle. Each goal earns 10 score points; conceding five goals ends the game.
+One switch: Your paddle moves up and down automatically. Press either switch to reverse direction.
+Two switches: Hold switch 1 to move up; hold switch 2 to move down.
+
+FLAPPY
+Fly through the gaps between pipes without crashing.
+One switch: Press either switch to flap. Release and press again for another flap.
+Two switches: Press either switch to flap. Release and press again for another flap.
+
+DINO
+Avoid obstacles as the dinosaur runs automatically.
+One switch: Press either switch to jump. This mode has ground obstacles and no birds.
+Two switches: Press switch 1 to jump; hold switch 2 to duck under birds.
+
+HELICOPTER
+Fly through the cave without hitting its walls.
+One switch: Hold either switch to thrust upward. Release to fall.
+Two switches: Hold either switch to thrust upward. Release both to fall.
+
+RHYTHM
+Press as notes reach the hit line. Avoid missing notes and build combos.
+One switch: Notes use one lane. Press either switch in time with each note.
+Two switches: Press switch 1 for a left-lane note; press switch 2 for a right-lane note.
+
+TANK
+Destroy enemies. Your tank fires automatically.
+One switch: Your tank turns automatically. Press either switch to reverse its turning direction.
+Two switches: Hold switch 1 to turn left; hold switch 2 to turn right.
+
+ASTEROIDS
+Destroy asteroids. Large asteroids split into smaller ones. Your ship fires automatically.
+One switch: Your ship turns automatically. Press either switch to reverse its turning direction.
+Two switches: Hold switch 1 to turn left; hold switch 2 to turn right.
+
+SKIING
+Steer through gates and avoid trees as you ski downhill.
+One switch: The skier steers automatically. Press either switch to reverse direction.
+Two switches: Hold switch 1 to steer left; hold switch 2 to steer right.
+
+BALANCE
+Keep the ball on the platform.
+One switch: The platform tilts automatically. Press either switch to reverse the tilt direction.
+Two switches: Hold switch 1 to tilt left; hold switch 2 to tilt right.
+
+SIMON
+Watch the left/right sequence, then repeat it in order.
+One switch: Wait for Your turn. The left/right answer highlight alternates automatically; press either switch to choose it. Scanning speed sets the answer interval.
+Two switches: Wait for Your turn. Press switch 1 for left or switch 2 for right, matching the sequence.
+
+WHACK
+Hit moles while they are up. The round lasts 30 seconds of game time.
+One switch: Press either switch while a mole is up to hit an available mole.
+Two switches: Press switch 1 for the left hole; press switch 2 for the right hole.
+
+AIRHOCKEY
+Hit the puck into the computer goal and defend your own. Conceding five goals ends the game; scoring five goals advances the level.
+One switch: Your paddle moves up and down automatically. Press either switch to reverse direction.
+Two switches: Hold switch 1 to move up; hold switch 2 to move down.
+
+LANDER
+Land gently on the green pad before fuel runs out. There is no left/right steering.
+One switch: Hold either switch to fire upward rockets and slow your fall. Release to descend.
+Two switches: Hold either switch to fire upward rockets and slow your fall. Release both to descend.
+
+FRUIT
+Slice fruit before it falls away. Five missed fruit end the game.
+One switch: Press either switch to slash both sides.
+Two switches: Press switch 1 to slash left; press switch 2 to slash right.
+
+STACK
+Stack the moving blocks. Overhanging portions are cut off; missing the tower ends the game.
+One switch: Press either switch to drop the moving block when it lines up with the tower.
+Two switches: Press either switch to drop the moving block when it lines up with the tower.
+
+PENALTY
+Shoot past the goalkeeper. Wait for the next ball before shooting again.
+One switch: Press either switch to shoot. Shots alternate between left and right.
+Two switches: Press switch 1 to shoot left; press switch 2 to shoot right.
+
+PINBALL
+Keep the ball in play and hit bumpers to score. You start with three balls.
+One switch: Hold either switch to lift both flippers. Release to lower them.
+Two switches: Hold switch 1 for the left flipper; hold switch 2 for the right flipper.
+
+BRICKBUILDER
+Place blocks to fill complete rows and clear them.
+One switch: The block moves left and right automatically. Press either switch to drop it into the highlighted position.
+Two switches: Press switch 1 to move left; press switch 2 to move right. The block drops automatically after a short interval.
+
+SPACEDODGE
+Avoid asteroids and survive as long as possible.
+One switch: Your ship moves automatically. Press either switch to reverse direction.
+Two switches: Hold switch 1 to move left; hold switch 2 to move right.
+
+WIRELOOP
+Guide the ring along the wire. Moving too quickly through bends can cost a life.
+One switch: Hold either switch to move forward. Release to stop and let the ring settle.
+Two switches: Hold switch 2 to move forward; hold switch 1 to move back more slowly. Release both to stop.
+
+ACCESSIBILITY NOTES
+Menus and dialogs support switch scanning and ordinary keyboard navigation.
+Game descriptions and periodic score/level updates are exposed to assistive
+technology; Simon, Whack and Fruit also expose changing game cues. Fast
+canvas games still require game-specific nonvisual and real-switch testing.
+Choose a comfortable speed and input setup with the player.
+
+LOCAL DEVELOPMENT
+Use npm start, then open http://127.0.0.1:8080. npm start builds automatically.
+Run npm test for regression checks. See TESTING.txt for browser-test commands
+and CHROME_PLAYTHROUGH.txt for the historical October 2026 gameplay audit.
